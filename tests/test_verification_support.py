@@ -92,6 +92,7 @@ def test_example_host_changes_change_fingerprint(repo: Path) -> None:
         ".nvmrc",
         "uv.lock",
         "osv-scanner.toml",
+        "actionlint-assessment.toml",
         ".pre-commit-config.yaml",
         ".gitattributes",
         ".python-version",
