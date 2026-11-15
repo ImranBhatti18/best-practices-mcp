@@ -8,7 +8,7 @@ Contributors need a straightforward workflow on Linux, macOS and native Windows,
 
 ## Decision
 
-Keep GNU Make as the canonical task interface. Most recipes already invoke Python; centralize platform-specific executable paths and environment exports, quote paths, and move the small shell-dependent help and distribution-globbing operations into a standard-library Python helper. Help continues to come from Makefile annotations. Windows uses native GNU Make with `cmd.exe` recipes, launched from PowerShell; it does not require Git Bash or WSL. CI exercises the same Make targets on all three operating systems, with environment paths containing spaces.
+Keep GNU Make as the canonical task interface. Most recipes already invoke Python; centralize platform-specific executable paths and environment exports, quote paths, and move the small shell-dependent help, executable-resolution and distribution-globbing operations into a standard-library Python helper. Help continues to come from Makefile annotations. Windows uses native GNU Make with `cmd.exe` recipes, launched from PowerShell; it does not require Git Bash or WSL. CI exercises the same Make targets on all three operating systems, with environment paths containing spaces.
 
 Use an independently installed, exactly pinned uv to create and synchronize the ordinary `venv` directory from `uv.lock`. `.python-version` selects Python 3.11, the minimum supported minor version; CI also tests 3.12. The package's Python compatibility declaration remains separate from this development preference. Install development tools from a `dev` dependency group rather than publishing them as a package extra. Node 24 and `package-lock.json` remain limited to DOM development tests.
 

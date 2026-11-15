@@ -2,6 +2,7 @@
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -50,6 +51,14 @@ def check_distributions(dist: Path) -> None:
     )
 
 
+def run_tool(command: list[str]) -> None:
+    """Resolve a launcher before execution (Windows batch files need their directory)."""
+    executable = shutil.which(command[0])
+    if executable is None:
+        raise FileNotFoundError(f"Executable not found: {command[0]}")
+    subprocess.run([executable, *command[1:]], check=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -57,13 +66,18 @@ def main() -> None:
     sub.add_parser("tooling-check")
     artifacts = sub.add_parser("check-dist")
     artifacts.add_argument("--dist", type=Path, required=True)
+    run = sub.add_parser("run")
+    run.add_argument("tool")
+    run.add_argument("arguments", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     if args.command == "help":
         show_help(ROOT / "Makefile")
     elif args.command == "tooling-check":
         check_tooling(ROOT)
-    else:
+    elif args.command == "check-dist":
         check_distributions(args.dist)
+    else:
+        run_tool([args.tool, *args.arguments])
 
 
 if __name__ == "__main__":

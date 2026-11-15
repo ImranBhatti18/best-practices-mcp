@@ -10,8 +10,8 @@ SHELL := cmd.exe
 .SHELLFLAGS := /d /c
 PYTHON ?= $(VENV)/Scripts/python.exe
 NPM ?= npm.cmd
-# Resolve the batch launcher through cmd so npm finds its own installation.
-NPM_COMMAND = call "$(NPM)"
+# Resolve the full batch-launcher path so npm finds its own installation.
+NPM_COMMAND = "$(PYTHON)" scripts/dev_tools.py run "$(NPM)"
 else
 PYTHON ?= $(VENV)/bin/python
 NPM ?= npm
