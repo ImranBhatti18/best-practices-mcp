@@ -21,6 +21,7 @@ PIP ?= "$(PYTHON)" -m pip
 NODE ?= node
 UV ?= uv
 OSV_SCANNER ?= osv-scanner
+GO ?= go
 # Keep in sync with the license scan in .github/workflows/osv-scanner.yml.
 OSV_LICENSES := MIT,MIT-0,BSD-2-Clause,BSD-3-Clause,Apache-2.0,ISC,PSF-2.0,MPL-2.0,BlueOak-1.0.0
 RELEASE_DIST ?= build/release/dist
@@ -174,11 +175,16 @@ pre-commit-check: ## Run all configured hooks against tracked files (no live tes
 
 .PHONY: scan-vulnerabilities scan-licenses
 
+.PHONY: actionlint-inventory
+
+actionlint-inventory: ## Generate CI-only actionlint inventory (network; requires Go and PyYAML)
+	"$(PYTHON)" scripts/actionlint_inventory.py --go "$(GO)"
+
 scan-vulnerabilities: ## Scan both lockfiles for vulnerabilities (network; requires OSV-Scanner)
-	"$(OSV_SCANNER)" --lockfile=uv.lock --lockfile=package-lock.json --no-resolve --format=sarif --output-file=osv-scanner.sarif
+	"$(OSV_SCANNER)" --config=osv-scanner.toml --lockfile=uv.lock --lockfile=package-lock.json --no-resolve --format=sarif --output-file=osv-scanner.sarif
 
 scan-licenses: ## Check dependency license policy and retain JSON (network; requires OSV-Scanner)
-	"$(OSV_SCANNER)" --lockfile=uv.lock --lockfile=package-lock.json --no-resolve --licenses=$(OSV_LICENSES) --all-packages --format=json --output-file=osv-licenses.json
+	"$(OSV_SCANNER)" --config=osv-scanner.toml --lockfile=uv.lock --lockfile=package-lock.json --no-resolve --licenses=$(OSV_LICENSES) --all-packages --format=json --output-file=osv-licenses.json
 
 release-check: ## Check release tag/version/main identity (RELEASE_ARGS or CI environment)
 	"$(PYTHON)" scripts/release_check.py source $(RELEASE_ARGS)

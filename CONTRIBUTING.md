@@ -49,7 +49,7 @@ Override `BOOTSTRAP_PYTHON` to test another interpreter, preferably in a separat
 
 For an existing checkout, stop processes using the development environment and deactivate it before migration. `make setup` synchronizes the selected environment and may replace it when the requested interpreter differs; it does not preserve manually installed packages. To recreate it explicitly, remove only the disposable `venv` directory and run `make setup` again. Do not edit `pyvenv.cfg` to switch interpreters.
 
-`pyproject.toml` declares runtime dependencies and the installed `dev` dependency group. The non-default `audit-tools` group records uv for OSV scanning without installing uv inside its own managed environment. `make tooling-check` rejects drift between this inventory, the lock and uv's required version. There is no `.tool-versions` or asdf prerequisite. See [ADR 0002](docs/adr/0002-development-toolchain.md) for the decision and alternatives.
+`pyproject.toml` declares runtime dependencies and the installed `dev` dependency group. The non-default `audit-tools` group records uv for OSV scanning without installing uv inside its own managed environment. A separate non-default `inventory-tools` group supplies CI’s YAML parser for actionlint inventory generation; normal setup does not select it. `make tooling-check` rejects drift between this inventory, the lock and uv's required version. There is no `.tool-versions` or asdf prerequisite. See [ADR 0002](docs/adr/0002-development-toolchain.md) for the decision and alternatives.
 
 After changing dependencies, run `make lock`, review the diff, then run `make setup` and the validation commands below. To update uv, change both its exact `required-version` and its `audit-tools` requirement, install that external uv version, then regenerate the lock. `make lock-check` verifies consistency without changing the lock. Fresh-consumer checks still install through pip without the development lock to exercise ordinary package installation.
 
@@ -102,7 +102,7 @@ To optionally run checks automatically when committing, run `make setup-hooks` o
 
 The offline suite takes roughly a minute and includes MCP subprocess and synthetic DOM tests; it never runs the live BadgeApp browser test or live smoke checks. OSV scans and fresh-package downloads are not commit hooks. `make pre-commit-check` runs all configured hooks against tracked files; `make workflow-check` explicitly checks all tracked workflows. Git hook installation remains optional and is not required for `make validate`.
 
-Dependabot checks the actionlint hook revision weekly and proposes updates to its SHA and version comment together. Keep the `# frozen: v1.7.12`-style comment when updating the pin so updates follow release tags.
+Dependabot checks the actionlint hook revision weekly and proposes updates to its SHA and version comment together. CI resolves the pinned SHA and generates an inventory of actionlint and its Go module dependencies for both OSV scans, retaining the inventory and provenance with the reports. Contributors do not generate this inventory or maintain Go dependency files. Keep the `# frozen: v1.7.12`-style comment when updating the pin so updates follow release tags.
 
 `make test-storage`, `make test-documents`, `make test-upstream`, and `make test-host` select focused storage, document, transfer/DOM and reference-host tests from the ordinary offline suite. `make smoke-live PROJECT_ID=1` separately checks public GET compatibility; it never saves anything or establishes the deployed upstream revision.
 
@@ -114,7 +114,7 @@ For live-form QA, follow the brief [PolicyChecks browser runbook](docs/live-brow
 
 ## Dependencies
 
-Any proposed change that introduces or updates a direct or transitive dependency must use a license compatible with this project's MIT-licensed distribution and intended use, and must pass the OSV vulnerability and license checks in CI. This applies to runtime, development, build and audit dependencies in `uv.lock` and `package-lock.json`. Include the dependency's purpose and available license evidence in the pull request. Contributors may use their preferred tools to assess a dependency or wait for the PR workflow results; installing or running OSV-Scanner locally is not required. Routine contributor validation does not recheck dependency licenses.
+Any proposed change that introduces or updates a direct or transitive dependency must use a license compatible with this project's MIT-licensed distribution and intended use, and must pass the OSV vulnerability and license checks in CI. This applies to runtime, development, build and audit dependencies in `uv.lock` and `package-lock.json`, plus actionlint and the Go module graph derived from its pinned hook revision in CI. Include the dependency's purpose and available license evidence in the pull request. Contributors may use their preferred tools to assess a dependency or wait for the PR workflow results; installing or running OSV-Scanner locally is not required. Routine contributor validation does not recheck dependency licenses.
 
 Update the appropriate manifest and lockfile (`make lock` for Python; standard npm tooling for Node), synchronize the development environments, and run `make validate`. The [OSV workflow](.github/workflows/osv-scanner.yml) enforces the license allowlist; [`osv-scanner.toml`](osv-scanner.toml) records version-specific metadata corrections and the approved Docutils development-tool exception. These do not suppress vulnerability checks. New licenses or changes to exceptions require review, and an OSI-approved license is not automatically on the allowlist. See [CI documentation](docs/ci.md#dependency-inventory) for scan scope and retained reports.
 
@@ -126,7 +126,7 @@ Maintainers and contributors who want proactive checks can install [OSV-Scanner]
 make -k scan-vulnerabilities scan-licenses
 ```
 
-These optional checks contact OSV and deps.dev and use the committed lockfiles and repository policy. Both scans are attempted even if one fails, and any failure produces a nonzero exit status. Results are written to the ignored files `osv-scanner.sarif` and `osv-licenses.json`; inspect `license_violations` in the JSON for license-policy findings. Investigate unknown metadata against the dependency's license files and document any justified policy correction or exception.
+These optional local checks contact OSV and deps.dev and use the committed Python/npm lockfiles and repository policy. They do not generate or scan the CI-only actionlint inventory; inspect the PR workflow reports for that coverage. Both scans are attempted even if one fails, and any failure produces a nonzero exit status. Results are written to the ignored files `osv-scanner.sarif` and `osv-licenses.json`; inspect `license_violations` in the JSON for license-policy findings. Investigate unknown metadata against the dependency's license files and document any justified policy correction or exception.
 
 ## Source installation and native Windows commands
 

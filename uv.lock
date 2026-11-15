@@ -76,6 +76,9 @@ dev = [
     { name = "setuptools" },
     { name = "twine" },
 ]
+inventory-tools = [
+    { name = "pyyaml" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -100,6 +103,7 @@ dev = [
     { name = "setuptools", specifier = "==84.2.1" },
     { name = "twine", specifier = "==7.0.0" },
 ]
+inventory-tools = [{ name = "pyyaml", specifier = "==6.0.3" }]
 
 [[package]]
 name = "build"
