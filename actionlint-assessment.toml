@@ -1,8 +1,0 @@
-# Review record for one advisory; consumed only by the CI actionlint inventory.
-# Changing the hook SHA or module version requires a new assessment.
-revision = "914e7df21a07ef503a81201c76d2b11c789d3fca"
-module = "golang.org/x/sys"
-version = "0.42.0"
-advisory = "GO-2026-5024"
-effective_until = 2027-02-15T00:00:00Z
-reason = "Reviewed 2026-11-15: actionlint v1.7.12 at the recorded SHA does not call windows.NewNTUnicodeString. govulncheck v1.9.0 with Go 1.27.4 found no reachable vulnerable symbols in ./cmd/actionlint across linux/darwin/windows on amd64/arm64. See docs/security/actionlint-assessment.md. This is not a package-wide vulnerability exemption."

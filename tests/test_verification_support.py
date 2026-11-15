@@ -92,7 +92,6 @@ def test_example_host_changes_change_fingerprint(repo: Path) -> None:
         ".nvmrc",
         "uv.lock",
         "osv-scanner.toml",
-        "actionlint-assessment.toml",
         ".pre-commit-config.yaml",
         ".gitattributes",
         ".python-version",
@@ -102,6 +101,7 @@ def test_example_host_changes_change_fingerprint(repo: Path) -> None:
         ".github/dependabot.yml",
         ".github/release-please-config.json",
         ".github/workflows/ci.yml",
+        ".github/workflows/actionlint.yml",
     ],
 )
 def test_dependency_build_and_release_input_changes_change_fingerprint(repo: Path, name: str):

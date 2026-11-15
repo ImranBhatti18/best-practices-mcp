@@ -3,7 +3,6 @@
 import importlib.util
 import json
 import subprocess
-import tomllib
 from pathlib import Path
 
 import pytest
@@ -16,42 +15,41 @@ INVENTORY = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(INVENTORY)
 SHA = "a" * 40
 ROOT_MODULE = {"Path": INVENTORY.MODULE, "Main": True}
-SYS_MODULE = {"Path": "golang.org/x/sys", "Version": "v0.42.0"}
+SYS_MODULE = {"Path": "golang.org/x/sys", "Version": "v0.47.0"}
 
 
-def assessment_files(tmp_path, *, revision=SHA, version="0.42.0", expires="2099-01-01T00:00:00Z"):
-    policy = tmp_path / "policy.toml"
-    policy.write_text('[[PackageOverrides]]\nname = "example"\nlicense.override = ["MIT"]\n')
-    assessment = tmp_path / "assessment.toml"
-    assessment.write_text(
-        f'revision = "{revision}"\nmodule = "golang.org/x/sys"\nversion = "{version}"\n'
-        f'advisory = "GO-2026-5024"\neffective_until = {expires}\nreason = "Assessed unreachable"\n'
+def workflow_file(tmp_path, *, revision=SHA, version="v1.17.1", go_version="1.27.4"):
+    workflow = tmp_path / "actionlint.yml"
+    workflow.write_text(
+        f'env:\n  ACTIONLINT_REVISION: "{revision}"\n  ACTIONLINT_VERSION: "{version}"\n'
+        f'  GO_VERSION: "{go_version}"\n',
+        encoding="utf-8",
     )
-    return {"policy": policy, "assessment": assessment}
+    return workflow
 
 
 def config_file(tmp_path, revision=SHA, repository=INVENTORY.REPOSITORY):
     config = tmp_path / "hooks.yaml"
     config.write_text(
         f"repos:\n  - repo: {repository}\n    rev: {revision}\n"
-        "    hooks:\n      - id: actionlint\n",
+        '    hooks:\n      - id: actionlint\n        language_version: "1.27.4"\n',
         encoding="utf-8",
     )
     return config
 
 
-def test_read_exact_official_pin(tmp_path):
+def test_read_exact_fork_pin(tmp_path):
     assert INVENTORY.read_pin(config_file(tmp_path)) == SHA
 
 
-@pytest.mark.parametrize("revision", ["v1.7.12", "main", "abc123", "1234"])
+@pytest.mark.parametrize("revision", ["v1.17.1", "main", "abc123", "1234"])
 def test_reject_mutable_or_abbreviated_revision(tmp_path, revision):
     with pytest.raises(ValueError, match="full commit SHA"):
         INVENTORY.read_pin(config_file(tmp_path, revision))
 
 
 def test_reject_other_repository(tmp_path):
-    with pytest.raises(ValueError, match="official actionlint"):
+    with pytest.raises(ValueError, match="kjanat/actionlint"):
         INVENTORY.read_pin(config_file(tmp_path, repository="https://example.com/fork"))
 
 
@@ -69,7 +67,7 @@ def test_resolved_source_must_match_sha(tmp_path, monkeypatch, origin):
         INVENTORY,
         "run_go",
         lambda *args: json.dumps(
-            {"Path": INVENTORY.MODULE, "Version": "v1.7.12", "Origin": origin}
+            {"Path": INVENTORY.MODULE, "Version": "v1.17.1", "Origin": origin}
         ),
     )
     with pytest.raises(ValueError, match="pinned repository and SHA"):
@@ -82,8 +80,8 @@ def test_graph_includes_root_and_normalizes_versions_for_osv_licenses():
         + "\n"
         + json.dumps({"Path": "golang.org/x/net", "Version": "v0.52.0"})
     )
-    assert INVENTORY.graph_packages(modules, "v1.7.12") == [
-        {"package": {"name": INVENTORY.MODULE, "version": "1.7.12", "ecosystem": "Go"}},
+    assert INVENTORY.graph_packages(modules, "v1.17.1") == [
+        {"package": {"name": INVENTORY.MODULE, "version": "1.17.1", "ecosystem": "Go"}},
         {"package": {"name": "golang.org/x/net", "version": "0.52.0", "ecosystem": "Go"}},
     ]
 
@@ -101,7 +99,7 @@ def test_graph_includes_root_and_normalizes_versions_for_osv_licenses():
 )
 def test_reject_incomplete_or_unrepresentable_graph(modules):
     with pytest.raises(ValueError):
-        INVENTORY.graph_packages(modules, "v1.7.12")
+        INVENTORY.graph_packages(modules, "v1.17.1")
 
 
 def test_success_retains_inputs_provenance_and_scannable_packages(tmp_path, monkeypatch):
@@ -114,11 +112,13 @@ def test_success_retains_inputs_provenance_and_scannable_packages(tmp_path, monk
 
     def go_command(go, directory, *args, target=None):
         calls.append(args)
+        if args[0] == "env":
+            return "go1.27.4\n"
         if args[0] == "mod":
             return json.dumps(
                 {
                     "Path": INVENTORY.MODULE,
-                    "Version": "v1.7.12",
+                    "Version": "v1.17.1",
                     "Origin": {"Hash": SHA, "URL": INVENTORY.REPOSITORY},
                     "Dir": str(source),
                     "Sum": "h1:module",
@@ -143,21 +143,27 @@ def test_success_retains_inputs_provenance_and_scannable_packages(tmp_path, monk
 
     monkeypatch.setattr(INVENTORY, "run_go", go_command)
     output = tmp_path / "result"
-    INVENTORY.generate(config, output, **assessment_files(tmp_path))
-    assert calls[:2] == [
+    INVENTORY.generate(config, output, workflow=workflow_file(tmp_path))
+    assert calls[:3] == [
+        ("env", "GOVERSION"),
         ("mod", "download", "-json", f"{INVENTORY.MODULE}@{SHA}"),
         ("list", "-mod=readonly", "-m", "-json", "all"),
     ]
     assert (output / "go.mod").read_bytes() == (source / "go.mod").read_bytes()
     assert json.loads((output / "provenance.json").read_text())["revision"] == SHA
     package = json.loads((output / "inventory.json").read_text())["results"][0]["packages"][0]
-    assert package["package"]["version"] == "1.7.12"
+    assert package["package"]["version"] == "1.17.1"
     scanned = json.loads((output / "inventory.json").read_text())["results"][0]["packages"]
     assert len(scanned) == 2  # Windows-only imports remain in the union; unused modules do not.
     assert len(json.loads((output / "full-graph.json").read_text())["results"][0]["packages"]) == 3
     assert len(json.loads((output / "imports.json").read_text())) == 12
-    effective = tomllib.loads((output / "osv-scanner.toml").read_text())
-    assert effective["IgnoredVulns"][0]["id"] == "GO-2026-5024"
+    stdlib = json.loads((output / "stdlib-inventory.json").read_text())
+    assert stdlib["results"][0]["packages"] == [
+        {"package": {"name": "stdlib", "version": "1.27.4", "ecosystem": "Go"}}
+    ]
+    assert all(p["package"]["name"] != "stdlib" for p in scanned)
+    assert not (output / "osv-scanner.toml").exists()
+    assert not (output / "assessment.toml").exists()
 
 
 def test_failure_clears_stale_inventory(tmp_path, monkeypatch):
@@ -171,7 +177,7 @@ def test_failure_clears_stale_inventory(tmp_path, monkeypatch):
 
     monkeypatch.setattr(INVENTORY, "run_go", fail)
     with pytest.raises(subprocess.CalledProcessError):
-        INVENTORY.generate(config_file(tmp_path), output)
+        INVENTORY.generate(config_file(tmp_path), output, workflow=workflow_file(tmp_path))
     assert list(output.iterdir()) == []
 
 
@@ -189,7 +195,7 @@ def test_graph_resolution_must_not_modify_upstream_inputs(tmp_path, monkeypatch)
 
     monkeypatch.setattr(INVENTORY, "run_go", modifies_input)
     with pytest.raises(ValueError, match="changed the pinned module inputs"):
-        INVENTORY.resolve_graph("go", workspace, {"Dir": str(source), "Version": "v1.7.12"})
+        INVENTORY.resolve_graph("go", workspace, {"Dir": str(source), "Version": "v1.17.1"})
 
 
 @pytest.mark.parametrize(
@@ -204,44 +210,37 @@ def test_graph_resolution_must_not_modify_upstream_inputs(tmp_path, monkeypatch)
 )
 def test_incomplete_executable_listing_fails(records):
     with pytest.raises(ValueError):
-        INVENTORY.imported_modules(records, "v1.7.12")
+        INVENTORY.imported_modules(records, "v1.17.1")
 
 
 @pytest.mark.parametrize(
-    "changes",
+    "changes, message",
     [
-        {"revision": "b" * 40},
-        {"version": "0.44.0"},
-        {"expires": "2000-01-01T00:00:00Z"},
-        {"expires": '"not-a-date"'},
+        ({"revision": "b" * 40}, "revisions must match"),
+        ({"version": "latest"}, "release version"),
+        ({"go_version": "1.27"}, "exact Go version"),
+        ({"go_version": "1.27.3"}, "Go versions must match"),
     ],
 )
-def test_assessment_requires_reviewed_revision_version_and_valid_expiry(tmp_path, changes):
-    files = assessment_files(tmp_path, **changes)
-    packages = INVENTORY.graph_packages([ROOT_MODULE, SYS_MODULE], "v1.7.12")
-    with pytest.raises((ValueError, TypeError)):
-        INVENTORY.assessed_policy(**files, revision=SHA, packages=packages)
+def test_workflow_and_hook_build_pins_must_agree(tmp_path, changes, message):
+    with pytest.raises(ValueError, match=message):
+        INVENTORY.read_build(config_file(tmp_path), workflow_file(tmp_path, **changes))
 
 
-def test_missing_assessed_module_fails(tmp_path):
-    with pytest.raises(ValueError, match="reassess"):
-        INVENTORY.assessed_policy(**assessment_files(tmp_path), revision=SHA, packages=[])
+@pytest.mark.parametrize("actual", ["go1.27.3", "go1.27.5", "devel go1.28"])
+def test_inventory_rejects_different_toolchain(tmp_path, monkeypatch, actual):
+    monkeypatch.setattr(INVENTORY, "run_go", lambda *args: actual)
+    with pytest.raises(ValueError, match="requires Go 1.27.4"):
+        INVENTORY.verify_toolchain("go", tmp_path, "1.27.4")
 
 
-def test_failed_assessment_clears_stale_policy_and_inventory(tmp_path, monkeypatch):
-    output = tmp_path / "result"
-    output.mkdir()
-    for name in INVENTORY.OUTPUT_FILES:
-        (output / name).write_text("stale")
-    packages = INVENTORY.graph_packages([ROOT_MODULE, SYS_MODULE], "v1.7.12")
-    monkeypatch.setattr(INVENTORY, "resolve_root", lambda *args: {"Version": "v1.7.12"})
-    monkeypatch.setattr(INVENTORY, "resolve_graph", lambda *args: (packages, {}))
-    monkeypatch.setattr(INVENTORY, "resolve_executable", lambda *args: (packages, {}))
-    with pytest.raises(ValueError, match="reassess"):
+def test_resolved_release_must_match_workflow_pin(tmp_path, monkeypatch):
+    monkeypatch.setattr(INVENTORY, "run_go", lambda *args: "go1.27.4")
+    monkeypatch.setattr(INVENTORY, "resolve_root", lambda *args: {"Version": "v1.17.0"})
+    with pytest.raises(ValueError, match="workflow release pin"):
         INVENTORY.generate(
-            config_file(tmp_path), output, **assessment_files(tmp_path, revision="b" * 40)
+            config_file(tmp_path), tmp_path / "output", workflow=workflow_file(tmp_path)
         )
-    assert list(output.iterdir()) == []
 
 
 def test_contradictory_module_versions_fail():
@@ -250,18 +249,7 @@ def test_contradictory_module_versions_fail():
         {"ImportPath": "golang.org/x/sys/execabs", "Module": {**SYS_MODULE, "Version": "v0.43.0"}},
     ]
     with pytest.raises(ValueError, match="contradictory"):
-        INVENTORY.imported_modules(records, "v1.7.12")
-
-
-def test_effective_policy_preserves_root_policy_and_only_ignores_one_advisory(tmp_path):
-    files = assessment_files(tmp_path)
-    packages = INVENTORY.graph_packages([ROOT_MODULE, SYS_MODULE], "v1.7.12")
-    effective = tomllib.loads(INVENTORY.assessed_policy(**files, revision=SHA, packages=packages))
-    original = tomllib.loads(files["policy"].read_text())
-    assert effective["PackageOverrides"] == original["PackageOverrides"]
-    assert len(effective["IgnoredVulns"]) == 1
-    assert effective["IgnoredVulns"][0]["id"] == "GO-2026-5024"
-    assert "vulnerability" not in effective["PackageOverrides"][0]
+        INVENTORY.imported_modules(records, "v1.17.1")
 
 
 def test_executable_module_mismatch_fails(tmp_path, monkeypatch):
@@ -274,8 +262,8 @@ def test_executable_module_mismatch_fails(tmp_path, monkeypatch):
         {"ImportPath": "golang.org/x/sys/windows", "Module": {**SYS_MODULE, "Version": "v0.43.0"}},
     ]
     monkeypatch.setattr(INVENTORY, "run_go", lambda *a, **kw: "\n".join(map(json.dumps, records)))
-    full_graph = INVENTORY.graph_packages([ROOT_MODULE, SYS_MODULE], "v1.7.12")
+    full_graph = INVENTORY.graph_packages([ROOT_MODULE, SYS_MODULE], "v1.17.1")
     with pytest.raises(ValueError, match="differ"):
         INVENTORY.resolve_executable(
-            "go", tmp_path / "work", {"Dir": str(source), "Version": "v1.7.12"}, full_graph
+            "go", tmp_path / "work", {"Dir": str(source), "Version": "v1.17.1"}, full_graph
         )

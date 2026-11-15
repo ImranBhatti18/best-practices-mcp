@@ -46,7 +46,6 @@ def source_fingerprint(root: Path) -> str:
             ".nvmrc",
             "uv.lock",
             "osv-scanner.toml",
-            "actionlint-assessment.toml",
             ".pre-commit-config.yaml",
             ".gitattributes",
             ".python-version",
