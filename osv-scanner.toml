@@ -17,6 +17,13 @@ license.override = ["Apache-2.0"]
 reason = "deps.dev reports non-standard; verified the release LICENSE and https://pypi.org/project/id/1.6.1/#licensing"
 
 [[PackageOverrides]]
+name = "nodeenv"
+version = "1.12.0"
+ecosystem = "PyPI"
+license.override = ["BSD-3-Clause"]
+reason = "deps.dev reports non-standard; verified the three BSD clauses in the release LICENSE at https://github.com/ekalinin/nodeenv/blob/1.12.0/LICENSE"
+
+[[PackageOverrides]]
 name = "pywin32"
 version = "312"
 ecosystem = "PyPI"
