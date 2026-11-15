@@ -1,10 +1,28 @@
 # Contributing
 
-This guide covers development, local MCP connections, verification and maintainer tooling. For package installation and everyday use, start with the [README](README.md). See the [roadmap](docs/roadmap.md) for planned work and proposals.
+Thank you for contributing to this project. We strongly encourage contributions, and there are many ways to get involved. If you wish to suggest a feature enhancement, or report any issues with the software or its documentation, visit the [Issues](https://github.com/reponomics/best-practices-mcp/issues) page. Before making any non-trivial code changes, please propose the changes in an issue.
 
-## Develop
+All contributors who interact with this repository must respect the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-Use Python 3.11 or newer and a local `venv`:
+This document covers development, local MCP connections, verification and maintainer tooling. For package installation and everyday use, start with the [README](README.md). See the [roadmap](docs/roadmap.md) for planned work and proposals.
+
+## Git Standards
+
+### Commit Messages
+
+Please use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) when committing code for this repo. Include a brief statement of the changes in the imperative mood, and an optional body, usually not more than a paragraph. Coding agents should avoid long, discursive commentary in the commit body.
+
+### Commit Signing
+
+Please ensure that your commits are signed and appear as "Verified" on GitHub. See GitHub [docs](https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification) for guidance. This is required and enforced on Pull Requests.
+
+### Commit Signoff - DCO
+
+By contributing code to this project, you must agree to the [Developer Certificate of Origin (DCO) version 1.1](./DCO.txt). This is a confirmation that you have the right to submit the code changes that you propose. To make this explicit, please include a `Signed-off-by: NAME <EMAIL ADDRESS>` trailer in your commits, which you can do simply by adding the `--signoff` flag (or `-s`) when running `git commit`, i.e., `git commit --signoff`. This is not a strict requirement for every commit, and coding agents should not be instructed to include a signoff on your behalf for changes that you have not reviewed or approved.
+
+## Local Development
+
+Review the [`pyproject.toml`](pyproject.toml) and prefer to use the lowest supported Python minor version for local development. The project uses a Makefile for development tooling, and assumes a virtual environment called `venv` for installing dependencies. `make help` lists commands. `make setup` installs the package in editable mode with the development tools; no global Python installation is modified. Override `BOOTSTRAP_PYTHON` when choosing the interpreter, for example `make setup BOOTSTRAP_PYTHON=python3.12`.
 
 ```sh
 make setup
