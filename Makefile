@@ -164,10 +164,13 @@ lock-check: tooling-check ## Verify the committed lockfile matches project metad
 workflow-check: ## Lint tracked GitHub Actions workflows through managed actionlint
 	"$(PYTHON)" -m pre_commit run actionlint --all-files
 
-.PHONY: setup-hooks
+.PHONY: setup-hooks pre-commit-check
 
-setup-hooks: ## Enable actionlint on staged workflow files at commit time (optional)
+setup-hooks: ## Enable checks selected by staged filenames at commit time (optional)
 	"$(PYTHON)" -m pre_commit install
+
+pre-commit-check: ## Run all configured hooks against tracked files (no live tests)
+	"$(PYTHON)" -m pre_commit run --all-files
 
 .PHONY: scan-vulnerabilities scan-licenses
 

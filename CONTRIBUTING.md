@@ -90,7 +90,19 @@ make check-fresh-package
 
 Workflow lint uses the [official actionlint pre-commit hook](https://github.com/rhysd/actionlint/blob/main/docs/usage.md#pre-commit), pinned in `.pre-commit-config.yaml`. `make setup` installs pre-commit in `venv`; `make workflow-check` (also included in `make validate`) checks all tracked workflows without a separate actionlint installation. Stage new workflow files with `git add` before checking them. The first run needs network access to build and cache actionlint; pre-commit uses an available Go installation or downloads Go if needed. Later runs reuse the cached environment.
 
-To optionally check staged workflows automatically when committing, run `make setup-hooks` once per clone after `make setup`. This installs the Git hook; it is not required to run `make validate`.
+To optionally run checks automatically when committing, run `make setup-hooks` once per clone after `make setup` and `make setup-dom`. Hooks use the existing locked environment and Make targets; run setup again after dependency changes. Each hook runs only when staged filenames match its inputs:
+
+| Hook | When it runs |
+| --- | --- |
+| Python quality | Python source, tests, examples, scripts, or Python/tooling configuration changes |
+| Lock consistency | Python manifest, lockfile, bootstrap configuration, or tooling helper changes |
+| Catalog reproduction | Vendored inputs, packaged catalog, generator, or relevant tooling configuration changes |
+| Offline tests | Implementation, tests, vendored inputs, package/build configuration, or hook configuration changes |
+| Actionlint | YAML files under `.github/workflows/` change |
+
+Changes confined to top-level Markdown files or `docs/` skip these checks; vendored documentation remains a checked upstream input. The offline suite takes roughly a minute and includes MCP subprocess and synthetic DOM tests; it never runs the live BadgeApp browser test or live smoke checks. OSV scans and fresh-package downloads are not commit hooks. `make pre-commit-check` runs all configured hooks against tracked files; `make workflow-check` explicitly checks all tracked workflows. Git hook installation remains optional and is not required for `make validate`.
+
+Dependabot checks the actionlint hook revision weekly and proposes updates to its SHA and version comment together. Keep the `# frozen: v1.7.12`-style comment when updating the pin so updates follow release tags.
 
 `make test-storage`, `make test-documents`, `make test-upstream`, and `make test-host` select focused storage, document, transfer/DOM and reference-host tests from the ordinary offline suite. `make smoke-live PROJECT_ID=1` separately checks public GET compatibility; it never saves anything or establishes the deployed upstream revision.
 

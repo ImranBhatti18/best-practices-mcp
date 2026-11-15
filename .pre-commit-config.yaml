@@ -1,5 +1,32 @@
 repos:
+  - repo: local
+    hooks:
+      - id: python-quality
+        name: Check Python formatting, lint and dependency consistency
+        entry: make quality
+        language: system
+        pass_filenames: false
+        files: ^((src|tests|examples|scripts)/.*\.py$|pyproject\.toml$|uv\.lock$|Makefile$|\.python-version$|\.pre-commit-config\.yaml$)
+      - id: lock-check
+        name: Check Python lock and bootstrap inventory
+        entry: make lock-check
+        language: system
+        pass_filenames: false
+        files: ^(pyproject\.toml|uv\.lock|Makefile|\.python-version|\.pre-commit-config\.yaml|scripts/dev_tools\.py)$
+      - id: catalog-check
+        name: Check catalog reproduction and upstream hashes
+        entry: make catalog-check
+        language: system
+        pass_filenames: false
+        files: ^(vendor/|src/best_practices_mcp/data/|scripts/generate_catalog\.py$|pyproject\.toml$|uv\.lock$|Makefile$|\.gitattributes$|\.pre-commit-config\.yaml$)
+      - id: offline-tests
+        name: Run offline regression and MCP integration tests
+        entry: make test
+        language: system
+        pass_filenames: false
+        files: ^((src|tests|examples|scripts|vendor)/|\.github/.*\.json$|pyproject\.toml$|uv\.lock$|package(-lock)?\.json$|Makefile$|MANIFEST\.in$|\.python-version$|\.nvmrc$|\.gitattributes$|\.pre-commit-config\.yaml$)
   - repo: https://github.com/rhysd/actionlint
     rev: 914e7df21a07ef503a81201c76d2b11c789d3fca # frozen: v1.7.12
     hooks:
       - id: actionlint
+        files: ^\.github/workflows/.*\.ya?ml$
