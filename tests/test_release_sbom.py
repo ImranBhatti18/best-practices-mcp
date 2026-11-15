@@ -3,7 +3,7 @@
 import hashlib
 import importlib.util
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import pytest
 
@@ -91,12 +91,17 @@ def test_sbom_records_candidate_hash_reference_scope_and_platform(tmp_path):
     assert properties["scope"] == "reference installation; includes environment bootstrap tools"
 
 
-def test_report_generation_uses_isolated_tool_and_scans_only_runtime_dependencies(tmp_path):
+@pytest.mark.parametrize("path_type", [Path, PurePosixPath, PureWindowsPath])
+def test_report_generation_uses_isolated_tool_and_scans_only_runtime_dependencies(
+    tmp_path, path_type
+):
     artifact = tmp_path / "candidate.whl"
     artifact.write_bytes(b"candidate")
     installation_path = tmp_path / "installation.json"
     installation_path.write_text(json.dumps(installation()))
     reports = tmp_path / "public"
+    runtime_python = path_type(tmp_path) / "runtime venv" / "python"
+    tool_python = path_type(tmp_path) / "tools venv" / "python"
     calls = []
 
     def run(label, command):
@@ -108,16 +113,22 @@ def test_report_generation_uses_isolated_tool_and_scans_only_runtime_dependencie
 
     result = sbom.generate_reference(
         artifact,
-        Path("/runtime/python"),
-        Path("/tools/python"),
+        runtime_python,
+        tool_python,
         installation_path,
         reports,
         ROOT,
         "b" * 40,
         run,
     )
-    assert calls[0][:5] == ["/tools/python", "-m", "cyclonedx_py", "environment", "/runtime/python"]
-    assert calls[1][0] == "/tools/python"
+    assert calls[0][:5] == [
+        str(tool_python),
+        "-m",
+        "cyclonedx_py",
+        "environment",
+        str(runtime_python),
+    ]
+    assert calls[1][0] == str(tool_python)
     assert "--validate" in calls[1]
     assert result == {
         "sbom": "runtime-wheel.cdx.json",
