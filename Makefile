@@ -10,9 +10,12 @@ SHELL := cmd.exe
 .SHELLFLAGS := /d /c
 PYTHON ?= $(VENV)/Scripts/python.exe
 NPM ?= npm.cmd
+# Resolve the batch launcher through cmd so npm finds its own installation.
+NPM_COMMAND = call "$(NPM)"
 else
 PYTHON ?= $(VENV)/bin/python
 NPM ?= npm
+NPM_COMMAND = "$(NPM)"
 endif
 PIP ?= "$(PYTHON)" -m pip
 NODE ?= node
@@ -117,7 +120,7 @@ smoke-badges: ## Opt-in paced JSON/SVG badge compatibility check (PROJECT_ID=1, 
 .PHONY: setup-dom test-upstream test-documents
 
 setup-dom: ## Install locked development-only DOM tooling (Node 24)
-	"$(NPM)" ci --ignore-scripts
+	$(NPM_COMMAND) ci --ignore-scripts
 
 test-documents: ## Verify pure patches, mechanical checks and real MCP document paths
 	"$(PYTHON)" -m pytest tests/test_drafts.py tests/test_validation.py tests/test_document_tools.py tests/test_storage_tools.py
