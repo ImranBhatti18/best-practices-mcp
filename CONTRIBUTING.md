@@ -71,13 +71,13 @@ Running it without arguments starts the stdio server and waits for an MCP host. 
 From the repository root after `make setup` and `make setup-dom`, with Node 24 on `PATH`:
 
 ```sh
-make check catalog-check lock-check workflow-check
+make validate
 make test-coverage
 make test-package
 make check-fresh-package
 ```
 
-`make workflow-check` requires a separately installed `actionlint` on `PATH`, or an explicit `ACTIONLINT=/path/to/actionlint` Make override. Coverage reports are written under `build/coverage/`; fresh-package results and sanitized logs are written under `build/verification/`. The [release procedure](docs/releasing.md) covers exact candidate qualification, publication controls and published-package QA.
+`make validate` checks lock consistency, runs quality checks and the offline test suite, verifies the catalog, and lints workflows. It continues with independent checks after a failure and exits nonzero if any check fails. It does not run OSV or require OSV-Scanner to be installed; dependency scans run in CI. The workflow lint check requires `actionlint` on `PATH`, or an explicit `ACTIONLINT=/path/to/actionlint` Make override. Individual targets remain available for focused work, including `make check` for quality checks and tests. Coverage reports are written under `build/coverage/`; fresh-package results and sanitized logs are written under `build/verification/`. The [release procedure](docs/releasing.md) covers exact candidate qualification, publication controls and published-package QA.
 
 `make test-storage`, `make test-documents`, `make test-upstream`, and `make test-host` select focused storage, document, transfer/DOM and reference-host tests from the ordinary offline suite. `make smoke-live PROJECT_ID=1` separately checks public GET compatibility; it never saves anything or establishes the deployed upstream revision.
 
@@ -89,21 +89,19 @@ For live-form QA, follow the brief [PolicyChecks browser runbook](docs/live-brow
 
 ## Dependencies
 
-Any proposed change that introduces or updates a direct or transitive dependency must use a license compatible with this project's MIT-licensed distribution and intended use, and must pass both OSV vulnerability and license scans. This applies to runtime, development, build and audit dependencies in `uv.lock` and `package-lock.json`. Include the dependency's purpose and license evidence in the pull request. An OSI-approved license is not automatically on the project's allowlist; review compatibility and update the policy explicitly when necessary.
+Any proposed change that introduces or updates a direct or transitive dependency must use a license compatible with this project's MIT-licensed distribution and intended use, and must pass the OSV vulnerability and license checks in CI. This applies to runtime, development, build and audit dependencies in `uv.lock` and `package-lock.json`. Include the dependency's purpose and available license evidence in the pull request. Contributors may use their preferred tools to assess a dependency or wait for the PR workflow results; installing or running OSV-Scanner locally is not required. Routine contributor validation does not recheck dependency licenses.
 
-The license allowlist is `MIT`, `MIT-0`, `BSD-2-Clause`, `BSD-3-Clause`, `Apache-2.0`, `ISC`, `PSF-2.0`, `MPL-2.0` and `BlueOak-1.0.0`. Keep the workflow's `--licenses` argument and the Makefile's `OSV_LICENSES` value together when changing it. [`osv-scanner.toml`](osv-scanner.toml) contains version-specific metadata corrections for Colorama 0.4.6 (BSD-3-Clause), id 1.6.1 (Apache-2.0) and pywin32 312 (PSF-2.0), with evidence for each correction. It also records an approved license-only exception for Docutils 0.23, used through Twine for release-description rendering and not bundled with the server. Docutils has public-domain, BSD and GPL-covered components; the exception does not relabel them as a single license. Reassess every entry when its version or use changes. All four packages remain subject to vulnerability scanning.
+Update the appropriate manifest and lockfile (`make lock` for Python; standard npm tooling for Node), synchronize the development environments, and run `make validate`. The [OSV workflow](.github/workflows/osv-scanner.yml) enforces the license allowlist; [`osv-scanner.toml`](osv-scanner.toml) records version-specific metadata corrections and the approved Docutils development-tool exception. These do not suppress vulnerability checks. New licenses or changes to exceptions require review, and an OSI-approved license is not automatically on the allowlist. See [CI documentation](docs/ci.md#dependency-inventory) for scan scope and retained reports.
 
-To validate a dependency change, update the appropriate manifest and lockfile (`make lock` for Python; standard npm tooling for Node), then install the matching environments with `make setup` and `make setup-dom`. Install the standalone [OSV-Scanner 2.7.1 release](https://github.com/google/osv-scanner/releases/tag/v2.7.1), matching the pinned CI action, and verify its published checksum. Put `osv-scanner` and `actionlint` on `PATH`, or pass `OSV_SCANNER=/path/to/osv-scanner` and `ACTIONLINT=/path/to/actionlint` to Make. Run this command from the repository root:
+### Optional local dependency scans
+
+Maintainers and contributors who want proactive checks can install [OSV-Scanner](https://google.github.io/osv-scanner/installation/) using the version pinned in the workflow. Put it on `PATH`, or pass `OSV_SCANNER=/path/to/osv-scanner` to Make, then run from the repository root:
 
 ```sh
-make validate
+make -k scan-vulnerabilities scan-licenses
 ```
 
-`make validate` checks lock consistency, scans vulnerabilities and licenses, runs quality checks and the offline test suite, verifies the catalog, and lints workflows. It continues with independent checks after a failure and exits nonzero if any check fails; tests still run if quality checks fail. The individual Make targets remain available for focused work, and `make check` remains the offline quality/test command.
-
-The scans contact OSV and deps.dev, use the committed locks without dependency installation or implicit resolution, and read the root `osv-scanner.toml` policy. They write ignored local reports to `osv-scanner.sarif` and `osv-licenses.json`. Review the JSON's `license_violations` entries and the vulnerability report; unknown or non-standard license data needs investigation against the exact release's license files. Record justified corrections or exceptions with package name, ecosystem, version, reason and source evidence; do not suppress vulnerabilities to fix license metadata. Update the scanner version in the workflow and these instructions together.
-
-CI runs the same two checks. Vulnerability findings, unexcepted license-policy findings and scanner errors each fail the OSV job. The license check runs even after a vulnerability-check failure, and available reports are retained separately as `osv-dependency-report` (SARIF) and `osv-license-report` (JSON and policy), including on failure. GitHub code scanning receives only the vulnerability SARIF: OSV 2.7.1 does not include license findings in that format. A passing scan checks the declared inventory and configured policy; it does not replace reviewing the dependency's actual license terms and redistribution notices.
+These optional checks contact OSV and deps.dev and use the committed lockfiles and repository policy. Both scans are attempted even if one fails, and any failure produces a nonzero exit status. Results are written to the ignored files `osv-scanner.sarif` and `osv-licenses.json`; inspect `license_violations` in the JSON for license-policy findings. Investigate unknown metadata against the dependency's license files and document any justified policy correction or exception.
 
 ## Source installation and native Windows commands
 
