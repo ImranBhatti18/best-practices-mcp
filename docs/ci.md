@@ -61,6 +61,6 @@ Keep `PYPI_PUBLISH_ENABLED` unset and leave the release App variable unset while
 
 ## Local validation
 
-`make check` remains the required offline regression/lint interface. `make test-coverage` measures server coverage locally. Run `actionlint` over `.github/workflows/*.yml` when changing workflows. The OSV scan contacts the advisory service and CodeQL/Codecov/Scorecard are qualified through their configured GitHub jobs; local configuration checks do not substitute for those executions.
+`make validate` runs lock consistency, both online OSV scans, quality checks, offline tests, catalog reproduction and workflow lint in one command. It continues with independent checks after failures and returns a failing status if any check fails; see [contributor prerequisites](../CONTRIBUTING.md#dependencies). `make check` remains the required offline regression/lint interface. `make test-coverage` measures server coverage locally. The OSV scans contact the advisory and license services, and CodeQL/Codecov/Scorecard are qualified through their configured GitHub jobs; local configuration checks do not substitute for those executions.
 
 References: [CodeQL advanced workflow configuration](https://docs.github.com/en/code-security/reference/code-scanning/workflow-configuration-options), [Codecov action and OIDC](https://github.com/codecov/codecov-action), [OSV-Scanner](https://google.github.io/osv-scanner/), [Dependabot configuration](https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference).

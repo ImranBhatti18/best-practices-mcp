@@ -49,6 +49,11 @@ quality: tooling-check ## Check formatting, lint and installed dependency consis
 check: quality ## Run quality checks and the offline test suite
 	"$(MAKE)" test
 
+.PHONY: validate
+
+validate: ## Run contributor checks, including online OSV scans (requires OSV-Scanner and actionlint)
+	"$(MAKE)" -k lock-check scan-vulnerabilities scan-licenses quality test catalog-check workflow-check
+
 tooling-check: ## Verify the uv bootstrap requirement matches its locked audit inventory
 	"$(UV)" run --no-project $(UV_PYTHON_ARG) python scripts/dev_tools.py tooling-check
 
