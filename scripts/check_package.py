@@ -96,6 +96,7 @@ def check_archives(dist: Path) -> Path:
             "/.python-version",
             "/uv.lock",
             "/osv-scanner.toml",
+            "/.pre-commit-config.yaml",
             "/.github/release-please-config.json",
             "/.github/.release-please-manifest.json",
             "/examples/host.py",

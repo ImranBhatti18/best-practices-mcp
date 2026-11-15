@@ -20,7 +20,6 @@ endif
 PIP ?= "$(PYTHON)" -m pip
 NODE ?= node
 UV ?= uv
-ACTIONLINT ?= actionlint
 OSV_SCANNER ?= osv-scanner
 # Keep in sync with the license scan in .github/workflows/osv-scanner.yml.
 OSV_LICENSES := MIT,MIT-0,BSD-2-Clause,BSD-3-Clause,Apache-2.0,ISC,PSF-2.0,MPL-2.0,BlueOak-1.0.0
@@ -51,7 +50,7 @@ check: quality ## Run quality checks and the offline test suite
 
 .PHONY: validate
 
-validate: ## Run contributor checks (requires actionlint; OSV scans run in CI)
+validate: ## Run contributor checks (OSV scans run in CI)
 	"$(MAKE)" -k lock-check quality test catalog-check workflow-check
 
 tooling-check: ## Verify the uv bootstrap requirement matches its locked audit inventory
@@ -162,8 +161,13 @@ lock: ## Resolve project metadata into the cross-platform development lockfile (
 lock-check: tooling-check ## Verify the committed lockfile matches project metadata
 	"$(UV)" lock --check $(UV_PYTHON_ARG)
 
-workflow-check: ## Lint all GitHub Actions workflows (requires actionlint)
-	"$(ACTIONLINT)"
+workflow-check: ## Lint tracked GitHub Actions workflows through managed actionlint
+	"$(PYTHON)" -m pre_commit run actionlint --all-files
+
+.PHONY: setup-hooks
+
+setup-hooks: ## Enable actionlint on staged workflow files at commit time (optional)
+	"$(PYTHON)" -m pre_commit install
 
 .PHONY: scan-vulnerabilities scan-licenses
 

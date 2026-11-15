@@ -1,6 +1,7 @@
 include CONTRIBUTING.md
 include Makefile package.json package-lock.json .nvmrc .python-version uv.lock
 include osv-scanner.toml
+include .pre-commit-config.yaml
 include .github/release-please-config.json .github/.release-please-manifest.json
 recursive-include docs *.md
 recursive-include examples *.py

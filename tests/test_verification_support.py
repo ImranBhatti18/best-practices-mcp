@@ -92,6 +92,7 @@ def test_example_host_changes_change_fingerprint(repo: Path) -> None:
         ".nvmrc",
         "uv.lock",
         "osv-scanner.toml",
+        ".pre-commit-config.yaml",
         ".python-version",
         "codecov.yml",
         "LICENSE",
