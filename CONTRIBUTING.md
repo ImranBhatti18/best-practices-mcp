@@ -18,7 +18,7 @@ Please ensure that your commits are signed and appear as "Verified" on GitHub. S
 
 ### Commit Signoff - DCO
 
-By contributing code to this project, you must agree to the [Developer Certificate of Origin (DCO) version 1.1](./DCO.txt). This is a confirmation that you have the right to submit the code changes that you propose. To make this explicit, please include a `Signed-off-by: NAME <EMAIL ADDRESS>` trailer in your commits, which you can do simply by adding the `--signoff` flag (or `-s`) when running `git commit`, i.e., `git commit --signoff`. This is not a strict requirement for every commit, and coding agents should not be instructed to include a signoff on your behalf for changes that you have not reviewed or approved.
+By contributing code to this project, you must agree to the [Developer Certificate of Origin (DCO) version 1.1](./docs/DCO.txt). This is a confirmation that you have the right to submit the code changes that you propose. To make this explicit, please include a `Signed-off-by: NAME <EMAIL ADDRESS>` trailer in your commits, which you can do simply by adding the `--signoff` flag (or `-s`) when running `git commit`, i.e., `git commit --signoff`. This is not a strict requirement for every commit, and coding agents should not be instructed to include a signoff on your behalf for changes that you have not reviewed or approved.
 
 ## Local Development
 
