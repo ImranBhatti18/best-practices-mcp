@@ -24,7 +24,8 @@ repos:
         entry: make test
         language: system
         pass_filenames: false
-        files: ^((src|tests|examples|scripts|vendor)/|\.github/.*\.json$|pyproject\.toml$|uv\.lock$|package(-lock)?\.json$|Makefile$|MANIFEST\.in$|\.python-version$|\.nvmrc$|\.gitattributes$|\.pre-commit-config\.yaml$)
+        # Tests may assert documentation content, so every commit needs the suite.
+        always_run: true
   - repo: https://github.com/rhysd/actionlint
     rev: 914e7df21a07ef503a81201c76d2b11c789d3fca # frozen: v1.7.12
     hooks:

@@ -166,7 +166,7 @@ workflow-check: ## Lint tracked GitHub Actions workflows through managed actionl
 
 .PHONY: setup-hooks pre-commit-check
 
-setup-hooks: ## Enable checks selected by staged filenames at commit time (optional)
+setup-hooks: ## Enable offline tests and applicable checks at commit time (optional)
 	"$(PYTHON)" -m pre_commit install
 
 pre-commit-check: ## Run all configured hooks against tracked files (no live tests)
