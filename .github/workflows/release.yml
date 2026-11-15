@@ -1,30 +1,82 @@
 name: Publish to PyPI
 
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing draft release tag to qualify and publish
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: pypi-${{ github.event.release.tag_name }}
+  group: pypi-${{ inputs.tag }}
   cancel-in-progress: false
 
+env:
+  RELEASE_TAG: ${{ inputs.tag }}
+
 jobs:
-  build:
-    name: Validate and build the released revision
-    # Both beta and stable releases are intentional; source validation checks
-    # the tag/version/prerelease flag. Enable only after the public-release gate.
+  preflight:
+    name: Verify the draft release identity
     if: >-
       github.repository == 'reponomics/best-practices-mcp' &&
       github.event.repository.private == false &&
       vars.PYPI_PUBLISH_ENABLED == 'true' &&
-      github.event.release.draft == false
+      github.ref == format('refs/tags/{0}', inputs.tag)
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 5
+    # GitHub draft visibility requires push access. This job only queries metadata;
+    # it never checks out, installs or executes project code.
+    permissions:
+      contents: write
+    outputs:
+      prerelease: ${{ steps.draft.outputs.prerelease }}
     steps:
-      - name: Check out the released commit
+      - name: Verify draft and tag
+        id: draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: &verify-draft |
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          def api(path):
+              return json.loads(subprocess.check_output(
+                  ['gh', 'api', 'repos/' + os.environ['GITHUB_REPOSITORY'] + '/' + path],
+                  text=True, timeout=60,
+              ))
+
+          tag = os.environ['RELEASE_TAG']
+          if re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-beta\.[0-9]+)?', tag) is None:
+              raise SystemExit('Invalid release tag')
+          release = api('releases/tags/' + tag)
+          ref = api('git/ref/tags/' + tag)['object']
+          if ref['type'] != 'commit' or ref['sha'] != os.environ['GITHUB_SHA']:
+              raise SystemExit('Release tag no longer identifies this workflow revision')
+          if release['tag_name'] != tag or not release['draft'] or release['immutable']:
+              raise SystemExit('An existing mutable draft is required')
+          if release['prerelease'] != ('-beta.' in tag):
+              raise SystemExit('Draft prerelease flag does not match the tag')
+          with Path(os.environ['GITHUB_OUTPUT']).open('a', encoding='utf-8') as output:
+              output.write('prerelease=' + str(release['prerelease']).lower() + '\n')
+          PY
+
+  build:
+    name: Validate and build the release candidate
+    needs: preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      candidate: ${{ steps.candidate.outputs.artifact-id }}
+    steps:
+      - name: Check out the candidate commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
@@ -44,62 +96,311 @@ jobs:
         with:
           version-file: pyproject.toml
           enable-cache: false
-      - name: Install development tools
-        run: make setup setup-dom
+      - name: Set up the inventoried Go toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.4'
+          cache: false
+      - name: Install locked development and isolated SBOM tools
+        run: make setup setup-dom release-evidence-setup
       - name: Validate tag, version, manifest and main ancestry
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          RELEASE_PRERELEASE: ${{ github.event.release.prerelease }}
+          RELEASE_PRERELEASE: ${{ needs.preflight.outputs.prerelease }}
         run: make release-check
       - name: Run required conformance checks
-        run: |
-          make check catalog-check
-          make lock-check
-      - name: Build and validate the exact upload candidates
-        run: make release-build release-qualify
-      - name: Preserve validated distributions
+        run: make validate
+      - name: Build and qualify the exact upload candidates with runtime SBOMs
+        run: make release-build release-qualify RELEASE_SBOM=1
+      - name: Inventory the pinned workflow linter
+        run: make actionlint-inventory
+      - name: Scan candidate and tooling dependencies for vulnerabilities
+        uses: google/osv-scanner-action/osv-scanner-action@32d3cd482bdadfb38b186c0ad1b031902d55d932 # v2.7.1
+        with:
+          scan-args: |-
+            --config=osv-scanner.toml
+            --lockfile=uv.lock
+            --lockfile=package-lock.json
+            --lockfile=osv-scanner:build/actionlint-inventory/inventory.json
+            --lockfile=osv-scanner:build/actionlint-inventory/stdlib-inventory.json
+            --lockfile=osv-scanner:build/release/reports/runtime-wheel.inventory.json
+            --lockfile=osv-scanner:build/release/reports/runtime-sdist.inventory.json
+            --no-resolve
+            --format=sarif
+            --output-file=build/release/reports/osv-vulnerabilities.sarif
+      - name: Check candidate and tooling licenses
+        if: ${{ !cancelled() }}
+        uses: google/osv-scanner-action/osv-scanner-action@32d3cd482bdadfb38b186c0ad1b031902d55d932 # v2.7.1
+        with:
+          scan-args: |-
+            --config=osv-scanner.toml
+            --lockfile=uv.lock
+            --lockfile=package-lock.json
+            --lockfile=osv-scanner:build/actionlint-inventory/inventory.json
+            --lockfile=osv-scanner:build/release/reports/runtime-wheel.inventory.json
+            --lockfile=osv-scanner:build/release/reports/runtime-sdist.inventory.json
+            --no-resolve
+            --licenses=MIT,MIT-0,0BSD,BSD-2-Clause,BSD-3-Clause,Apache-2.0,ISC,PSF-2.0,MPL-2.0,BlueOak-1.0.0
+            --all-packages
+            --format=json
+            --output-file=build/release/reports/osv-licenses.json
+      - name: Export the separate development tooling inventory
+        if: ${{ !cancelled() }}
+        uses: google/osv-scanner-action/osv-scanner-action@32d3cd482bdadfb38b186c0ad1b031902d55d932 # v2.7.1
+        with:
+          scan-args: |-
+            --config=osv-scanner.toml
+            --lockfile=uv.lock
+            --lockfile=package-lock.json
+            --lockfile=osv-scanner:build/actionlint-inventory/inventory.json
+            --no-resolve
+            --all-packages
+            --format=cyclonedx-1-6
+            --output-file=build/release/reports/tooling.cdx.json
+      - name: Assemble the successful release bundle
+        env:
+          RELEASE_OSV_VERSION: '2.7.1'
+        run: make release-bundle
+      - name: Preserve validated candidate and evidence
+        id: candidate
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: pypi-distributions
-          path: build/release/dist/*
+          name: release-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/release/bundle/
           if-no-files-found: error
-          retention-days: 7
-      - name: Retain release qualification evidence
+          retention-days: 30
+      - name: Retain qualification and scan evidence on failure
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: release-qualification
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             build/release/evidence.json
             build/release/evidence.log
+            build/release/reports/
+            build/actionlint-inventory/
           if-no-files-found: warn
           retention-days: 30
 
   publish:
-    name: Publish validated artifacts through Trusted Publishing
+    name: Attest and publish the approved candidate
     needs: build
-    if: >-
-      github.repository == 'reponomics/best-practices-mcp' &&
-      github.event.repository.private == false &&
-      vars.PYPI_PUBLISH_ENABLED == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
     environment:
       name: pypi
       url: https://pypi.org/project/best-practices-mcp/
     permissions:
       contents: read
       id-token: write
+      attestations: write
+    outputs:
+      attestations: ${{ steps.bundles.outputs.artifact-id }}
     steps:
-      # No checkout, dependency installation or project build code in this job.
-      - name: Download this run's validated distributions
+      # Only fixed workflow code executes here. Downloaded files are data, never scripts.
+      - name: Download this run's exact candidate
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: pypi-distributions
-          path: dist
-      - name: Publish with attestations
+          artifact-ids: ${{ needs.build.outputs.candidate }}
+          path: bundle
+          merge-multiple: true
+      - name: Verify candidate identities and checksums
+        id: verify
+        run: &verify-candidate |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          def digest(path):
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          def expected_files(root, manifest):
+              entries = manifest['artifacts']
+              if not isinstance(entries, dict) or not entries:
+                  raise ValueError('Missing artifact inventory')
+              for name, record in entries.items():
+                  if re.fullmatch(r'(dist|reports)/[A-Za-z0-9_.-]+', name) is None:
+                      raise ValueError('Unsafe candidate path')
+                  path = root / name
+                  if path.is_symlink() or not path.is_file():
+                      raise ValueError('Candidate must contain regular files')
+                  if record != {'sha256': digest(path), 'bytes': path.stat().st_size}:
+                      raise ValueError('Candidate checksum or size mismatch')
+              return set(entries) | {'release.json', 'SHA256SUMS'}
+
+          def verify_file_inventory(root, expected):
+              paths = list(root.rglob('*'))
+              if any(path.is_symlink() for path in paths):
+                  raise ValueError('Symlinks are forbidden in the candidate')
+              actual = {path.relative_to(root).as_posix() for path in paths if path.is_file()}
+              if actual != expected or len({Path(name).name for name in expected}) != len(expected):
+                  raise ValueError('Unexpected, missing or colliding candidate files')
+
+          def verify_checksums(root, expected):
+              checksums = ''.join(
+                  digest(root / name) + '  ' + Path(name).name + '\n'
+                  for name in sorted(expected - {'SHA256SUMS'}, key=lambda name: Path(name).name)
+              )
+              if (root / 'SHA256SUMS').read_text(encoding='utf-8') != checksums:
+                  raise ValueError('Checksum manifest mismatch')
+
+          def verify(root):
+              manifest = json.loads((root / 'release.json').read_text(encoding='utf-8'))
+              if manifest['schema_version'] != 1 or manifest['tag'] != os.environ['RELEASE_TAG']:
+                  raise ValueError('Unexpected release identity')
+              if manifest['commit'] != os.environ['GITHUB_SHA']:
+                  raise ValueError('Candidate belongs to another commit')
+              expected = expected_files(root, manifest)
+              verify_file_inventory(root, expected)
+              verify_checksums(root, expected)
+              wheels = list((root / 'dist').glob('*.whl'))
+              sdists = list((root / 'dist').glob('*.tar.gz'))
+              if len(wheels) != 1 or len(sdists) != 1 or len(list((root / 'dist').iterdir())) != 2:
+                  raise ValueError('Expected exactly one wheel and source archive')
+              return wheels[0], sdists[0]
+
+          wheel, sdist = verify(Path('bundle'))
+          with Path(os.environ['GITHUB_OUTPUT']).open('a', encoding='utf-8') as output:
+              output.write('wheel=' + wheel.as_posix() + '\nsdist=' + sdist.as_posix() + '\n')
+          PY
+      - name: Attest build provenance for both distributions
+        id: provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: bundle/dist/*
+      - name: Attest the wheel reference-installation SBOM
+        id: wheel-sbom
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ steps.verify.outputs.wheel }}
+          sbom-path: bundle/reports/runtime-wheel.cdx.json
+      - name: Attest the source archive reference-installation SBOM
+        id: sdist-sbom
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: ${{ steps.verify.outputs.sdist }}
+          sbom-path: bundle/reports/runtime-sdist.cdx.json
+      - name: Collect signed bundles
+        env:
+          PROVENANCE: ${{ steps.provenance.outputs.bundle-path }}
+          WHEEL_SBOM: ${{ steps.wheel-sbom.outputs.bundle-path }}
+          SDIST_SBOM: ${{ steps.sdist-sbom.outputs.bundle-path }}
+        run: |
+          mkdir attestations
+          cp -- "$PROVENANCE" attestations/provenance.sigstore.json
+          cp -- "$WHEEL_SBOM" attestations/runtime-wheel.sigstore.json
+          cp -- "$SDIST_SBOM" attestations/runtime-sdist.sigstore.json
+      - name: Retain signed bundles for publication and verification
+        id: bundles
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-attestations-${{ github.run_id }}-${{ github.run_attempt }}
+          path: attestations/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish unchanged distributions with PyPI attestations
         uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
-          packages-dir: dist/
+          packages-dir: bundle/dist/
           attestations: true
           print-hash: true
+
+  github-release:
+    name: Attach evidence and publish the immutable GitHub release
+    needs: [build, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Recheck the draft and immutable tag identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: *verify-draft
+      - name: Download the exact published candidate
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.build.outputs.candidate }}
+          path: bundle
+          merge-multiple: true
+      - name: Verify candidate again before attaching assets
+        run: *verify-candidate
+      - name: Download this run's signed bundles
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.publish.outputs.attestations }}
+          path: attestations
+          merge-multiple: true
+      - name: Verify signatures before release attachment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for artifact in bundle/dist/*; do
+            gh attestation verify "$artifact" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+              --source-ref "refs/tags/$RELEASE_TAG" --source-digest "$GITHUB_SHA" \
+              --bundle attestations/provenance.sigstore.json
+            case "$artifact" in
+              *.whl) sbom_bundle=attestations/runtime-wheel.sigstore.json ;;
+              *.tar.gz) sbom_bundle=attestations/runtime-sdist.sigstore.json ;;
+              *) exit 1 ;;
+            esac
+            gh attestation verify "$artifact" --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+              --source-ref "refs/tags/$RELEASE_TAG" --source-digest "$GITHUB_SHA" \
+              --predicate-type https://cyclonedx.org/bom --bundle "$sbom_bundle"
+          done
+      - name: Attach matching assets and publish the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          def gh(*args):
+              return subprocess.check_output(['gh', *args], text=True, timeout=120)
+
+          def draft(repository, tag):
+              release = json.loads(gh('api', 'repos/' + repository + '/releases/tags/' + tag))
+              if not release['draft'] or release['immutable'] or release['tag_name'] != tag:
+                  raise SystemExit('Release is no longer a mutable draft')
+              if release['prerelease'] != ('-beta.' in tag):
+                  raise SystemExit('Draft prerelease flag no longer matches the tag')
+              ref = json.loads(gh('api', 'repos/' + repository + '/git/ref/tags/' + tag))['object']
+              if ref['type'] != 'commit' or ref['sha'] != os.environ['GITHUB_SHA']:
+                  raise SystemExit('Release tag no longer identifies this candidate')
+              return release
+
+          def asset_inventory(release):
+              assets = {asset['name']: asset.get('digest') for asset in release['assets']}
+              if len(assets) != len(release['assets']):
+                  raise SystemExit('Duplicate release asset names')
+              return assets
+
+          repository = os.environ['GITHUB_REPOSITORY']
+          tag = os.environ['RELEASE_TAG']
+          files = [path for path in Path('bundle').rglob('*') if path.is_file()]
+          signatures = list(Path('attestations').iterdir())
+          expected_signatures = {'provenance.sigstore.json', 'runtime-wheel.sigstore.json', 'runtime-sdist.sigstore.json'}
+          if {path.name for path in signatures} != expected_signatures or any(path.is_symlink() or not path.is_file() for path in signatures):
+              raise SystemExit('Unexpected attestation files')
+          files.extend(signatures)
+          expected = {path.name: 'sha256:' + hashlib.sha256(path.read_bytes()).hexdigest() for path in files}
+          release = draft(repository, tag)
+          existing = asset_inventory(release)
+          for name, digest in existing.items():
+              if expected.get(name) != digest:
+                  raise SystemExit('An existing draft asset differs; investigate before retrying')
+          missing = [str(path) for path in files if path.name not in existing]
+          if missing:
+              gh('release', 'upload', tag, '--repo', repository, *missing)
+          if asset_inventory(draft(repository, tag)) != expected:
+              raise SystemExit('Uploaded release assets do not exactly match the candidate')
+          gh('release', 'edit', tag, '--repo', repository, '--draft=false')
+          PY

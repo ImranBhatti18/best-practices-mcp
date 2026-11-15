@@ -289,3 +289,36 @@ def test_release_configuration_tracks_package_and_documentation_versions():
         assert release.Version(manifest["."]) == release.Version(
             release.project_metadata(ROOT)["version"]
         )
+
+
+def test_sbom_cli_preserves_isolated_interpreter_and_absolute_output(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    base = tmp_path / "base-python"
+    base.touch()
+    interpreter = tmp_path / "tools-python"
+    try:
+        interpreter.symlink_to(base)
+    except OSError:
+        pytest.skip("Creating interpreter symlinks requires additional Windows privileges")
+    calls = []
+
+    def check(root, dist, output, allow_downloads, *, sbom_python):
+        calls.append((output, sbom_python))
+        return {"status": "passed"}
+
+    monkeypatch.setattr(release, "check_candidate", check)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "release_check.py",
+            "artifacts",
+            "--allow-downloads",
+            "--sbom-python",
+            "tools-python",
+            "--output",
+            "reports/evidence.json",
+        ],
+    )
+    assert release.main() == 0
+    assert calls == [(tmp_path / "reports/evidence.json", interpreter)]

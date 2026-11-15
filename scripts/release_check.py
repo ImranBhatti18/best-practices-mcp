@@ -186,7 +186,9 @@ def verify_artifacts(root: Path, dist: Path) -> dict:
     return result
 
 
-def qualify_exact_archives(dist: Path, output: Path, report: dict | None = None) -> dict:
+def qualify_exact_archives(
+    dist: Path, output: Path, report: dict | None = None, *, sbom_python: Path | None = None
+) -> dict:
     """Reuse installed-package probes without rebuilding the reviewed candidate."""
     from check_fresh_package import qualify_artifact
 
@@ -199,12 +201,19 @@ def qualify_exact_archives(dist: Path, output: Path, report: dict | None = None)
     with tempfile.TemporaryDirectory(prefix="bestpractices-release-") as temporary:
         workspace = Path(temporary)
         for kind, artifact in (("wheel", wheel), ("sdist", sdist)):
-            qualify_artifact(artifact, sdist, workspace / kind, report, log)
+            options = (
+                {}
+                if sbom_python is None
+                else {"sbom_python": sbom_python, "reports": output.parent / "reports"}
+            )
+            qualify_artifact(artifact, sdist, workspace / kind, report, log, **options)
     report["status"] = "passed"
     return report
 
 
-def check_candidate(root: Path, dist: Path, output: Path, allow_downloads: bool) -> dict:
+def check_candidate(
+    root: Path, dist: Path, output: Path, allow_downloads: bool, *, sbom_python: Path | None = None
+) -> dict:
     """Replace prior evidence before checking; preserve partial evidence on failure."""
     output.parent.mkdir(parents=True, exist_ok=True)
     report = {"status": "running", "artifacts": {}, "toolchain": {"make": make_version()}}
@@ -216,7 +225,7 @@ def check_candidate(root: Path, dist: Path, output: Path, allow_downloads: bool)
         report["artifacts"] = before
         if allow_downloads:
             report["installation"] = {"status": "failed", "stages": [], "artifacts": {}}
-            qualify_exact_archives(dist, output, report["installation"])
+            qualify_exact_archives(dist, output, report["installation"], sbom_python=sbom_python)
         if before != verify_artifacts(root, dist):
             raise ValueError("Release artifacts changed during qualification")
         report["status"] = "passed"
@@ -250,6 +259,7 @@ def main() -> int:
         action="store_true",
         help="Qualify exact archives with fresh dependency installs",
     )
+    artifacts.add_argument("--sbom-python", type=Path, help="Isolated release-tools interpreter")
     args = parser.parse_args()
     if args.command == "source":
         version = validate_source(ROOT, args.tag, args.prerelease == "true")
@@ -257,7 +267,14 @@ def main() -> int:
         print(f"Validated {args.tag} ({version}) at {revision} on main")
         return 0
     args.dist = args.dist.resolve()
-    report = check_candidate(ROOT, args.dist, args.output, args.allow_downloads)
+    if args.sbom_python is not None and not args.allow_downloads:
+        parser.error("--sbom-python requires --allow-downloads qualification")
+    # Preserve the venv interpreter symlink: resolving it would select the base Python.
+    sbom_python = args.sbom_python.absolute() if args.sbom_python is not None else None
+    args.output = args.output.absolute()
+    report = check_candidate(
+        ROOT, args.dist, args.output, args.allow_downloads, sbom_python=sbom_python
+    )
     print(json.dumps(report, indent=2))
     return 0
 

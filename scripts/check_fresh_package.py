@@ -85,7 +85,16 @@ def copy_probe_inputs(sdist: Path, workspace: Path) -> None:
             (workspace / target).write_bytes(content.read())
 
 
-def qualify_artifact(artifact: Path, sdist: Path, workspace: Path, report: dict, log: Path) -> None:
+def qualify_artifact(
+    artifact: Path,
+    sdist: Path,
+    workspace: Path,
+    report: dict,
+    log: Path,
+    *,
+    sbom_python: Path | None = None,
+    reports: Path | None = None,
+) -> None:
     kind = "wheel" if artifact.suffix == ".whl" else "sdist"
     workspace.mkdir()
     env = clean_environment(workspace)
@@ -104,7 +113,8 @@ def qualify_artifact(artifact: Path, sdist: Path, workspace: Path, report: dict,
     stage(
         report,
         f"{kind}: install with dependencies",
-        [str(python), "-m", "pip", "install", str(artifact)],
+        [str(python), "-m", "pip", "install", str(artifact)]
+        + (["--report", str(workspace / "installation.json")] if sbom_python else []),
         workspace,
         env,
         log,
@@ -131,6 +141,21 @@ def qualify_artifact(artifact: Path, sdist: Path, workspace: Path, report: dict,
         log,
     )
     report["artifacts"][kind] = json.loads(output)
+    if sbom_python is not None:
+        from release_sbom import generate_reference
+
+        if reports is None:
+            raise ValueError("Release SBOM generation requires a reports directory")
+        report["artifacts"][kind]["reference_evidence"] = generate_reference(
+            artifact,
+            python,
+            sbom_python,
+            workspace / "installation.json",
+            reports,
+            ROOT,
+            git(ROOT, "rev-parse", "HEAD"),
+            lambda label, command: stage(report, label, command, workspace, env, log),
+        )
 
 
 def execute(report: dict, log: Path) -> None:

@@ -23,10 +23,18 @@ UV ?= uv
 OSV_SCANNER ?= osv-scanner
 GO ?= go
 # Keep in sync with the license scan in .github/workflows/osv-scanner.yml.
-OSV_LICENSES := MIT,MIT-0,BSD-2-Clause,BSD-3-Clause,Apache-2.0,ISC,PSF-2.0,MPL-2.0,BlueOak-1.0.0
+OSV_LICENSES := MIT,MIT-0,BSD-2-Clause,BSD-3-Clause,Apache-2.0,ISC,PSF-2.0,MPL-2.0,BlueOak-1.0.0,0BSD
 RELEASE_DIST ?= build/release/dist
 RELEASE_EVIDENCE ?= build/release/evidence.json
 RELEASE_ARGS ?=
+RELEASE_TOOLS_VENV ?= build/release-tools
+ifeq ($(OS),Windows_NT)
+RELEASE_SBOM_PYTHON ?= $(RELEASE_TOOLS_VENV)/Scripts/python.exe
+else
+RELEASE_SBOM_PYTHON ?= $(RELEASE_TOOLS_VENV)/bin/python
+endif
+RELEASE_SBOM ?= 0
+RELEASE_SBOM_ARG = $(if $(filter 1,$(RELEASE_SBOM)),--sbom-python "$(RELEASE_SBOM_PYTHON)")
 
 export UV_PROJECT_ENVIRONMENT := $(VENV)
 export NODE
@@ -196,5 +204,16 @@ release-artifacts: ## Verify exact candidate metadata, contents, notices and has
 	"$(PYTHON)" scripts/dev_tools.py check-dist --dist "$(RELEASE_DIST)"
 	"$(PYTHON)" scripts/release_check.py artifacts --dist "$(RELEASE_DIST)" --output "$(RELEASE_EVIDENCE)"
 
+.PHONY: release-evidence-setup
+
+release-evidence-setup: export UV_PROJECT_ENVIRONMENT := $(RELEASE_TOOLS_VENV)
+release-evidence-setup: ## Install isolated locked SBOM tooling for release evidence only
+	"$(UV)" sync --locked --only-group release-tools --no-install-project $(UV_PYTHON_ARG)
+
 release-qualify: release-artifacts ## Install/probe the exact candidates in fresh venvs (downloads dependencies)
-	"$(PYTHON)" scripts/release_check.py artifacts --dist "$(RELEASE_DIST)" --output "$(RELEASE_EVIDENCE)" --allow-downloads
+	"$(PYTHON)" scripts/release_check.py artifacts --dist "$(RELEASE_DIST)" --output "$(RELEASE_EVIDENCE)" --allow-downloads $(RELEASE_SBOM_ARG)
+
+.PHONY: release-bundle
+
+release-bundle: ## Bind qualified archives and release reports into a checksummed publication bundle
+	"$(PYTHON)" scripts/release_bundle.py --dist "$(RELEASE_DIST)" --evidence "$(RELEASE_EVIDENCE)" --reports build/release/reports --output build/release/bundle

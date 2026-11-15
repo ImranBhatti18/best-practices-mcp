@@ -19,7 +19,9 @@
           "type": "generic",
           "path": "README.md"
         }
-      ]
+      ],
+      "draft": true,
+      "force-tag-creation": true
     }
   }
 }

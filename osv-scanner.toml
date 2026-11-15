@@ -3,6 +3,20 @@
 # These entries never suppress vulnerability findings.
 
 [[PackageOverrides]]
+name = "arrow"
+version = "1.4.0"
+ecosystem = "PyPI"
+license.override = ["Apache-2.0"]
+reason = "Release-only SBOM tooling: deps.dev reports non-standard; verified the published wheel LICENSE and https://github.com/arrow-py/arrow/blob/1.4.0/LICENSE"
+
+[[PackageOverrides]]
+name = "defusedxml"
+version = "0.7.1"
+ecosystem = "PyPI"
+license.override = ["PSF-2.0"]
+reason = "Release-only SBOM tooling: registry metadata uses PSFL; verified PSF License Version 2 in the published wheel and https://github.com/tiran/defusedxml/blob/v0.7.1/LICENSE"
+
+[[PackageOverrides]]
 name = "colorama"
 version = "0.4.6"
 ecosystem = "PyPI"

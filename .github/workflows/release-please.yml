@@ -21,8 +21,11 @@ jobs:
       vars.RELEASE_APP_CLIENT_ID != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      # App-generated PR/release events can trigger downstream CI and publication.
+      # The App lets release PRs trigger CI; draft publication is dispatched below.
       - name: Create repository-scoped release App token
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
@@ -33,9 +36,40 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
       - name: Prepare release
+        id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           token: ${{ steps.app-token.outputs.token }}
           target-branch: main
           config-file: .github/release-please-config.json
           manifest-file: .github/.release-please-manifest.json
+
+  dispatch:
+    name: Qualify the draft release
+    needs: release
+    if: ${{ needs.release.outputs.release_created == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      # workflow_dispatch is an explicit exception to GITHUB_TOKEN event suppression.
+      # Run at the tag so the pypi environment's tag restriction still applies.
+      - name: Dispatch the tagged candidate workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag_name }}
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          import re
+          import subprocess
+          tag = os.environ['RELEASE_TAG']
+          if re.fullmatch(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-beta\.[0-9]+)?', tag) is None:
+              raise SystemExit('Invalid release tag')
+          subprocess.run([
+              'gh', 'workflow', 'run', 'release.yml', '--repo', os.environ['GITHUB_REPOSITORY'],
+              '--ref', tag, '-f', 'tag=' + tag,
+          ], check=True, timeout=60)
+          PYTHON
