@@ -27,7 +27,7 @@ The first browser run is deferred until after publication of the first beta and 
 
 ## Commands and gates
 
-After `make setup` and `make setup-dom` with Node 24, run:
+After `make setup` and `make setup-dom` with Node 24.22.3 or newer within 24.x, run:
 
 ```sh
 make check

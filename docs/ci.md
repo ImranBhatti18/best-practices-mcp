@@ -6,7 +6,7 @@ The workflows maintain the bounded eleven-tool MCP; they do not add runtime serv
 
 | Workflow | Trigger and coverage | Required setup |
 | --- | --- | --- |
-| Compatibility and coverage | Pull requests to `main`, pushes to `main`, and manual runs; Python 3.11/3.12 on Ubuntu, macOS and Windows, offline regression/coverage, catalog checks and fresh wheel/sdist installation | GitHub Actions; Node 24 is development-only |
+| Compatibility and coverage | Pull requests to `main`, pushes to `main`, and manual runs; Python 3.11/3.12 on Ubuntu, macOS and Windows, offline regression/coverage, catalog checks and fresh wheel/sdist installation | GitHub Actions; development-only Node is selected from `.nvmrc` (24.22.3) |
 | Actionlint | PRs/pushes to `main` and manual runs, including documentation-only changes; all workflow YAML files | Read-only job, sparse checkout, fork v1.17.1 built with Go 1.27.4; no secrets or publication credentials |
 | Semantic PR | PR title metadata for PRs targeting `main`; conventional type/title validation | Squash-only merges and PR-title squash defaults make the validated title the commit on `main` |
 | Upstream criteria update | Monday 09:23 UTC and manual runs on `main`; refreshes retained upstream sources, catalog and documentation pins in one regular PR; deletes the reserved branch after merge | Existing Release App credentials for signed commits/PR events; optional `UPSTREAM_UPDATES_PAUSED=true` pauses updates for manual fixes |
@@ -28,7 +28,7 @@ The lint step captures structured JSON and stderr rather than printing raw diagn
 
 ## Dependency inventory
 
-`uv.lock` is the universal development lockfile for runtime dependencies, the installed `dev` group and the non-default `audit-tools` and `inventory-tools` groups. Local setup, compatibility CI and release qualification all use `make setup` to synchronize locked dependencies into `venv`. `.python-version` defaults to Python 3.11; CI overrides `BOOTSTRAP_PYTHON` for its 3.11/3.12 matrix. `package-lock.json` covers development-only DOM tooling. See [ADR 0002](adr/0002-development-toolchain.md) for the decision and alternatives.
+`uv.lock` is the universal development lockfile for runtime dependencies, the installed `dev` group and the non-default `audit-tools` and `inventory-tools` groups. Local setup, compatibility CI and release qualification all use `make setup` to synchronize locked dependencies into `venv`. `.python-version` defaults to Python 3.11; CI overrides `BOOTSTRAP_PYTHON` for its 3.11/3.12 matrix. `package-lock.json` covers development-only DOM tooling. The minimum supported Node version is 24.22.3 within the 24.x line; `.nvmrc` selects the exact version for nvm, compatibility CI and release qualification. See [ADR 0002](adr/0002-development-toolchain.md) for the decision and alternatives.
 
 uv is an external bootstrap tool. Its exact requirement lives in `[tool.uv].required-version`; `setup-uv` reads this from `pyproject.toml`. The matching distribution is locked in `audit-tools` solely for inventory and is excluded from normal setup. `make tooling-check` checks agreement between these declarations and `uv.lock`; `.tool-versions` and asdf are not used. pip remains a locked development dependency for offline package checks. The CI-only `inventory-tools` group reuses the locked PyYAML parser; CI installs only this group into a separate environment without installing the project.
 

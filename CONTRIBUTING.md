@@ -26,7 +26,7 @@ Local development defaults to Python **3.11**, the lowest supported minor versio
 
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/) independently of the project environment, using the exact version in `[tool.uv].required-version` in [`pyproject.toml`](pyproject.toml), currently **0.13.7**. uv is required for contributor setup and lock maintenance; it is not required to run the installed server. `uv --version` checks the executable on your `PATH`; `UV=/path/to/uv` overrides it for Make.
 
-Install GNU Make and Node 24. On macOS, Make is available with the command-line developer tools; on Linux, use the distribution's package manager. On Windows, one supported route is `choco install make --version=4.4.1 --yes` from an elevated PowerShell with [Chocolatey](https://community.chocolatey.org/packages/make/4.4.1) already installed. Reopen the terminal if needed to refresh `PATH`. Use native Windows Python/uv/Node with native Make; Git Bash and WSL are not prerequisites. On Unix systems with nvm, `nvm use` selects the project's Node version; Windows contributors can install Node 24 directly.
+Install GNU Make and **Node 24.22.3 or a newer 24.x release**. The minimum is the [24.22.3 security release](https://nodejs.org/en/blog/release/v24.22.3/); `.nvmrc` selects that version for local setup and CI. On macOS, Make is available with the command-line developer tools; on Linux, use the distribution's package manager. On Windows, one supported route is `choco install make --version=4.4.1 --yes` from an elevated PowerShell with [Chocolatey](https://community.chocolatey.org/packages/make/4.4.1) already installed. Reopen the terminal if needed to refresh `PATH`. Use native Windows Python/uv/Node with native Make; Git Bash and WSL are not prerequisites. On Unix systems with nvm, run `nvm install` and then `nvm use` from the repository root to install and select the version in `.nvmrc`. Windows contributors can install Node 24.22.3 or a newer 24.x release directly. Check `node --version` before running the setup commands.
 
 The repository's [`.gitattributes`](.gitattributes) keeps text files at LF line endings on every platform, including Windows with `core.autocrlf=true`. Vendored upstream files and the copied upstream license are exempt from conversion because their exact bytes are checked. Save source files with LF endings in your editor; no global Git setting change is required. For an older Windows checkout already containing CRLF files, commit or stash your work and use a fresh clone to apply the policy without overwriting local edits.
 
@@ -77,7 +77,7 @@ Running it without arguments starts the stdio server and waits for an MCP host. 
 
 ## Validate the implementation
 
-From the repository root after `make setup` and `make setup-dom`, with Node 24 on `PATH`:
+From the repository root after `make setup` and `make setup-dom`, with Node 24.22.3 or newer within 24.x on `PATH`:
 
 ```sh
 make validate
@@ -202,4 +202,4 @@ On Windows PowerShell, use `npx.cmd` and the Windows server executable:
 npx.cmd -y @modelcontextprotocol/inspector@2.14.0 --protocol-era modern .\venv\Scripts\bestpractices-mcp.exe
 ```
 
-Use Node 24.22.1 or another version supported by that Inspector release. Discovery, get_criteria, build_draft, read_draft, update_draft and validate_draft are offline. update_draft mutates local storage; use a disposable absolute BESTPRACTICES_DATA_DIR for Inspector tests. find_project, get_project_progress and artifact generation make public BadgeApp GETs. No tool authenticates or submits changes. For a reproducible CLI schema check, add `--cli --method tools/list --strict --format json`. See [schema compatibility](docs/schema-compatibility.md) for official guidance and the distinction between portability lint and MCP conformance.
+Use the project’s Node 24.22.3 baseline or a newer 24.x version supported by that Inspector release. Discovery, get_criteria, build_draft, read_draft, update_draft and validate_draft are offline. update_draft mutates local storage; use a disposable absolute BESTPRACTICES_DATA_DIR for Inspector tests. find_project, get_project_progress and artifact generation make public BadgeApp GETs. No tool authenticates or submits changes. For a reproducible CLI schema check, add `--cli --method tools/list --strict --format json`. See [schema compatibility](docs/schema-compatibility.md) for official guidance and the distinction between portability lint and MCP conformance.

@@ -153,7 +153,7 @@ npx -y @modelcontextprotocol/inspector@2.14.0 --cli \
   --method tools/list --strict --format json
 ```
 
-Inspector is a development check with an explicit version pin, not a runtime dependency or a download inside default offline `make qa`. Use a compatible Node 24 release managed by nvm (24.22.1 satisfies the current pin). Keep Inspector installation/download and live network effects visible in owner commands. Revisit the pin deliberately with compatibility evidence; no Inspector warning justifies silently upgrading the runtime SDK.
+Inspector is a development check with an explicit version pin, not a runtime dependency or a download inside default offline `make qa`. Use the project’s Node 24.22.3 baseline or a newer compatible 24.x release managed by nvm. Keep Inspector installation/download and live network effects visible in owner commands. Revisit the pin deliberately with compatibility evidence; no Inspector warning justifies silently upgrading the runtime SDK.
 
 | Gate | Additional schema acceptance evidence |
 | --- | --- |

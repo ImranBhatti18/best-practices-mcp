@@ -19,7 +19,7 @@ The retained upstream documents are under `vendor/badgeapp-m3/docs/`. The [trans
 
 ## Commands and gates
 
-After `make setup` and `make setup-dom` with Node 24, run:
+After `make setup` and `make setup-dom` with Node 24.22.3 or newer within 24.x, run:
 
 ```sh
 make check
