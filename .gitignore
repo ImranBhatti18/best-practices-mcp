@@ -109,6 +109,10 @@ out/
 .cache/
 .parcel-cache/
 
+# Local dependency scan reports
+/osv-scanner.sarif
+/osv-licenses.json
+
 # Temporary files
 .tmp/
 .temp/

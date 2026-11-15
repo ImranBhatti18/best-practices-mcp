@@ -1,0 +1,31 @@
+# License metadata corrections and the approved development-tool exception.
+# Every entry is version-specific: review it again when the package is updated.
+# These entries never suppress vulnerability findings.
+
+[[PackageOverrides]]
+name = "colorama"
+version = "0.4.6"
+ecosystem = "PyPI"
+license.override = ["BSD-3-Clause"]
+reason = "Registry metadata identifies only BSD; verified the three clauses in https://github.com/tartley/colorama/blob/0.4.6/LICENSE.txt"
+
+[[PackageOverrides]]
+name = "id"
+version = "1.6.1"
+ecosystem = "PyPI"
+license.override = ["Apache-2.0"]
+reason = "deps.dev reports non-standard; verified the release LICENSE and https://pypi.org/project/id/1.6.1/#licensing"
+
+[[PackageOverrides]]
+name = "pywin32"
+version = "312"
+ecosystem = "PyPI"
+license.override = ["PSF-2.0"]
+reason = "deps.dev reports UNKNOWN; use the PSF license classification published at https://pypi.org/project/pywin32/312/"
+
+[[PackageOverrides]]
+name = "docutils"
+version = "0.23"
+ecosystem = "PyPI"
+license.ignore = true
+reason = "Approved development-only exception: Twine uses Docutils to render release descriptions; it is not a runtime dependency or bundled with this server. Release COPYING.rst documents public-domain files, BSD-2-Clause/BSD-3-Clause components, and the GPL-3.0-or-later Emacs integration. See https://docutils.sourceforge.io/COPYING.html. Reassess if the version or use changes; vulnerability scanning remains enabled."

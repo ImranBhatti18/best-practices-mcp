@@ -21,6 +21,9 @@ PIP ?= "$(PYTHON)" -m pip
 NODE ?= node
 UV ?= uv
 ACTIONLINT ?= actionlint
+OSV_SCANNER ?= osv-scanner
+# Keep in sync with the license scan in .github/workflows/osv-scanner.yml.
+OSV_LICENSES := MIT,MIT-0,BSD-2-Clause,BSD-3-Clause,Apache-2.0,ISC,PSF-2.0,MPL-2.0,BlueOak-1.0.0
 RELEASE_DIST ?= build/release/dist
 RELEASE_EVIDENCE ?= build/release/evidence.json
 RELEASE_ARGS ?=
@@ -156,6 +159,14 @@ lock-check: tooling-check ## Verify the committed lockfile matches project metad
 
 workflow-check: ## Lint all GitHub Actions workflows (requires actionlint)
 	"$(ACTIONLINT)"
+
+.PHONY: scan-vulnerabilities scan-licenses
+
+scan-vulnerabilities: ## Scan both lockfiles for vulnerabilities (network; requires OSV-Scanner)
+	"$(OSV_SCANNER)" --lockfile=uv.lock --lockfile=package-lock.json --no-resolve --format=sarif --output-file=osv-scanner.sarif
+
+scan-licenses: ## Check dependency license policy and retain JSON (network; requires OSV-Scanner)
+	"$(OSV_SCANNER)" --lockfile=uv.lock --lockfile=package-lock.json --no-resolve --licenses=$(OSV_LICENSES) --all-packages --format=json --output-file=osv-licenses.json
 
 release-check: ## Check release tag/version/main identity (RELEASE_ARGS or CI environment)
 	"$(PYTHON)" scripts/release_check.py source $(RELEASE_ARGS)

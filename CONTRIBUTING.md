@@ -87,6 +87,25 @@ For live-form QA, follow the brief [PolicyChecks browser runbook](docs/live-brow
 
 `make upstream-check` compares all retained BadgeApp sources against `production` using public network reads, without editing files or GitHub. `make upstream-prepare` prepares source, catalog and documentation-reference changes locally. The weekly/manual workflow maintains one regular update PR; labels are advisory and every update requires review and passing CI. Follow the [upstream update procedure](docs/upstream-compatibility.md#checking-for-upstream-changes), including pausing automation before making manual fixes on its reserved branch.
 
+## Dependencies
+
+Any proposed change that introduces or updates a direct or transitive dependency must use a license compatible with this project's MIT-licensed distribution and intended use, and must pass both OSV vulnerability and license scans. This applies to runtime, development, build and audit dependencies in `uv.lock` and `package-lock.json`. Include the dependency's purpose and license evidence in the pull request. An OSI-approved license is not automatically on the project's allowlist; review compatibility and update the policy explicitly when necessary.
+
+The license allowlist is `MIT`, `MIT-0`, `BSD-2-Clause`, `BSD-3-Clause`, `Apache-2.0`, `ISC`, `PSF-2.0`, `MPL-2.0` and `BlueOak-1.0.0`. Keep the workflow's `--licenses` argument and the Makefile's `OSV_LICENSES` value together when changing it. [`osv-scanner.toml`](osv-scanner.toml) contains version-specific metadata corrections for Colorama 0.4.6 (BSD-3-Clause), id 1.6.1 (Apache-2.0) and pywin32 312 (PSF-2.0), with evidence for each correction. It also records an approved license-only exception for Docutils 0.23, used through Twine for release-description rendering and not bundled with the server. Docutils has public-domain, BSD and GPL-covered components; the exception does not relabel them as a single license. Reassess every entry when its version or use changes. All four packages remain subject to vulnerability scanning.
+
+To validate a dependency change, update the appropriate manifest and lockfile (`make lock` for Python; standard npm tooling for Node), then install the matching environments with `make setup` and `make setup-dom`. Install the standalone [OSV-Scanner 2.7.1 release](https://github.com/google/osv-scanner/releases/tag/v2.7.1), matching the pinned CI action, and verify its published checksum. Put `osv-scanner` on `PATH`, or pass `OSV_SCANNER=/path/to/osv-scanner` to Make. Run these commands from the repository root:
+
+```sh
+make lock-check
+make -k scan-vulnerabilities scan-licenses
+make check catalog-check
+make workflow-check
+```
+
+`make -k` runs both scans even if one fails and still exits nonzero if either fails. The scans contact OSV and deps.dev, use the committed locks without dependency installation or implicit resolution, and read the root `osv-scanner.toml` policy. They write ignored local reports to `osv-scanner.sarif` and `osv-licenses.json`. Review the JSON's `license_violations` entries and the vulnerability report; unknown or non-standard license data needs investigation against the exact release's license files. Record justified corrections or exceptions with package name, ecosystem, version, reason and source evidence; do not suppress vulnerabilities to fix license metadata. Update the scanner version in the workflow and these instructions together.
+
+CI runs the same two checks. Vulnerability findings, unexcepted license-policy findings and scanner errors each fail the OSV job. The license check runs even after a vulnerability-check failure, and available reports are retained separately as `osv-dependency-report` (SARIF) and `osv-license-report` (JSON and policy), including on failure. GitHub code scanning receives only the vulnerability SARIF: OSV 2.7.1 does not include license findings in that format. A passing scan checks the declared inventory and configured policy; it does not replace reviewing the dependency's actual license terms and redistribution notices.
+
 ## Source installation and native Windows commands
 
 Python 3.11 is the supported minimum targeted by the compatibility matrix. Use an isolated environment; the assessed project does not need to use Python. From this checkout, a runtime-only installation on macOS/Linux is:
