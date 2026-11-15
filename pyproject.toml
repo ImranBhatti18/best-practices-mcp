@@ -18,7 +18,7 @@ Repository = "https://github.com/reponomics/best-practices-mcp"
 Issues = "https://github.com/reponomics/best-practices-mcp/issues"
 Documentation = "https://github.com/reponomics/best-practices-mcp/blob/main/README.md"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "build==1.6.1",
     "coverage==7.17.2",
@@ -30,8 +30,13 @@ dev = [
     "ruff==0.17.4",
     "setuptools==84.2.1",
     "twine==7.0.0",
-    "uv==0.13.7",
 ]
+
+audit-tools = ["uv==0.13.7"]
+
+[tool.uv]
+required-version = "==0.13.7"
+default-groups = ["dev"]
 
 [project.scripts]
 bestpractices-mcp = "best_practices_mcp.__main__:main"

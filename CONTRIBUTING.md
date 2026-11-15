@@ -24,31 +24,32 @@ By contributing code to this project, you must agree to the [Developer Certifica
 
 Local development defaults to Python **3.11**, the lowest supported minor version, as recorded in [`.python-version`](.python-version). [`pyproject.toml`](pyproject.toml) retains `requires-python = ">=3.11"` for package compatibility and Ruff's `py311` target. The local interpreter preference does not restrict users to Python 3.11.
 
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/) independently of the project environment and use the version recorded in [`.tool-versions`](.tool-versions), currently **0.13.7**. `uv --version` checks the executable on your `PATH`; `UV=/path/to/uv` overrides it for Make. uv must be available before `make setup` because it creates and synchronizes the environment. It is also pinned in the development extra so the dependency inventory includes the tool.
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) independently of the project environment, using the exact version in `[tool.uv].required-version` in [`pyproject.toml`](pyproject.toml), currently **0.13.7**. uv is required for contributor setup and lock maintenance; it is not required to run the installed server. `uv --version` checks the executable on your `PATH`; `UV=/path/to/uv` overrides it for Make.
+
+Install GNU Make and Node 24. On macOS, Make is available with the command-line developer tools; on Linux, use the distribution's package manager. On Windows, one supported route is `choco install make --version=4.4.1 --yes` from an elevated PowerShell with [Chocolatey](https://community.chocolatey.org/packages/make/4.4.1) already installed. Reopen the terminal if needed to refresh `PATH`. Use native Windows Python/uv/Node with native Make; Git Bash and WSL are not prerequisites. On Unix systems with nvm, `nvm use` selects the project's Node version; Windows contributors can install Node 24 directly.
+
+The same commands work from a Unix shell or Windows PowerShell:
 
 ```sh
+make help
 make setup
-nvm use
 make setup-dom
 make check
 make example
 make build
 ```
 
-`make help` lists commands. `make setup` uses `uv sync --locked --extra dev` to create or synchronize `venv`, installing this package in editable mode and the development dependencies from [`uv.lock`](uv.lock). It explicitly selects the Python version from `.python-version`; uv can download a matching interpreter if needed. `--locked` fails if the lockfile needs updating. Synchronization removes packages not selected by the lock, so keep unrelated tools in separate environments. pip is an explicit development dependency because the offline package checks use it.
+`make help` reads the Makefile's annotated targets through a small Python helper and works before project setup. uv can supply Python if necessary. `make setup` uses `uv sync --locked --group dev --no-group audit-tools` to create or synchronize `venv`, installing this package in editable mode and the development dependencies from [`uv.lock`](uv.lock). `.python-version` supplies the interpreter preference; `--locked` fails if metadata and the lock disagree. Synchronization removes unselected packages, so keep unrelated tools in separate environments. pip is an explicit development dependency for offline package installation checks.
 
-The Makefile sets `UV_PROJECT_ENVIRONMENT` to `venv` for setup; uv otherwise defaults to `.venv`. Activation is optional because the Make targets use `venv/bin/python` directly. To use uv project commands directly, select the same environment and development extra:
+The Makefile exports `UV_PROJECT_ENVIRONMENT=venv` and selects `venv/bin/python` or `venv/Scripts/python.exe`. Activation is unnecessary. Direct uv project commands must select the same environment: set `UV_PROJECT_ENVIRONMENT` to `venv` in your shell before using `uv sync` or `uv run`, otherwise uv defaults to `.venv`. Prefer the Make targets for repeated operations.
 
-```sh
-UV_PROJECT_ENVIRONMENT=venv uv sync --locked --extra dev --python 3.11
-UV_PROJECT_ENVIRONMENT=venv uv run --locked --extra dev --python 3.11 pytest
-```
+Override `BOOTSTRAP_PYTHON` to test another interpreter, preferably in a separate environment: `make setup VENV=venv-3.12 BOOTSTRAP_PYTHON=3.12`, followed by `make check VENV=venv-3.12 BOOTSTRAP_PYTHON=3.12`. Add custom environment directories to your local Git excludes. Paths containing spaces can be passed as one quoted argument, for example `make setup "VENV=build/dev venv"`. Overrides do not edit `.python-version` or narrow the universal lock.
 
-Override `BOOTSTRAP_PYTHON` to test another interpreter, preferably in a separate environment: `make setup VENV=venv-3.12 BOOTSTRAP_PYTHON=3.12`, followed by `make check VENV=venv-3.12`. Add any custom environment directory to your local Git excludes. An override does not edit `.python-version` or narrow the universal lockfile.
+For an existing checkout, stop processes using the development environment and deactivate it before migration. `make setup` synchronizes the selected environment and may replace it when the requested interpreter differs; it does not preserve manually installed packages. To recreate it explicitly, remove only the disposable `venv` directory and run `make setup` again. Do not edit `pyvenv.cfg` to switch interpreters.
 
-For an existing checkout, stop processes using its development environment and deactivate it before migration. `make setup` replaces an environment whose Python minor version does not match the requested version, then installs the locked dependencies; it does not preserve manually installed packages. To recreate an environment even when its interpreter already matches, remove only the disposable `venv` directory and run `make setup` again. Do not edit `pyvenv.cfg` to switch interpreters.
+`pyproject.toml` declares runtime dependencies and the installed `dev` dependency group. The non-default `audit-tools` group records uv for OSV scanning without installing uv inside its own managed environment. `make tooling-check` rejects drift between this inventory, the lock and uv's required version. There is no `.tool-versions` or asdf prerequisite. See [ADR 0002](docs/adr/0002-development-toolchain.md) for the decision and alternatives.
 
-`pyproject.toml` declares the package's dependencies; `uv.lock` records the development resolution across supported platforms and Python versions; `.python-version` selects the default local interpreter. After deliberately changing dependency declarations, run `make lock`, review the diff, then run `make setup` and the validation commands below. `make lock-check` verifies metadata consistency without updating the lock. Fresh-consumer checks still install through pip without the development lock to exercise package installation as users encounter it.
+After changing dependencies, run `make lock`, review the diff, then run `make setup` and the validation commands below. To update uv, change both its exact `required-version` and its `audit-tools` requirement, install that external uv version, then regenerate the lock. `make lock-check` verifies consistency without changing the lock. Fresh-consumer checks still install through pip without the development lock to exercise ordinary package installation.
 
 The interactive reference host remains available; its deprecation is [planned](docs/roadmap.md#planned).
 
@@ -67,7 +68,7 @@ Running it without arguments starts the stdio server and waits for an MCP host. 
 
 ## Validate the implementation
 
-From the repository root after `make setup`, `nvm use` and `make setup-dom`:
+From the repository root after `make setup` and `make setup-dom`, with Node 24 on `PATH`:
 
 ```sh
 make check catalog-check lock-check workflow-check
@@ -96,7 +97,7 @@ venv/bin/python -m pip install .
 venv/bin/python -m best_practices_mcp --version
 ```
 
-The native PowerShell equivalents are:
+The native PowerShell equivalents for a runtime-only installation are:
 
 ```powershell
 py -3.11 -m venv venv
@@ -104,20 +105,7 @@ py -3.11 -m venv venv
 .\venv\Scripts\python.exe -m best_practices_mcp --version
 ```
 
-For Windows development/QA, install the same standalone uv version described above and Node 24, then synchronize the locked development environment. Use these commands without requiring Make or shell activation:
-
-```powershell
-$env:UV_PROJECT_ENVIRONMENT = "venv"
-uv sync --locked --extra dev --python 3.11
-npm ci --ignore-scripts
-.\venv\Scripts\python.exe -m ruff format --check src tests examples scripts
-.\venv\Scripts\python.exe -m ruff check src tests examples scripts
-.\venv\Scripts\python.exe -m pip check
-.\venv\Scripts\python.exe scripts/check_coverage.py
-.\venv\Scripts\python.exe scripts/check_package.py
-.\venv\Scripts\python.exe scripts/check_fresh_package.py --allow-downloads --output build/verification/fresh-package.json
-.\venv\Scripts\python.exe examples/host.py --discover
-```
+For development and QA on Windows, use the same Make targets documented above from PowerShell. CI exercises native Make with `cmd.exe` recipes, including an environment path containing spaces.
 
 Coverage measures server-package lines and branches, including Python MCP subprocesses. A temporary hook in the development venv forwards only Coverage.py's process configuration through the SDK's filtered environment; it is removed after collection and does not modify production code. `make test-coverage` writes `build/coverage/html/index.html`, XML/JSON reports and a summary with commit/environment details. Coverage percentages complement behavioral assertions; they do not establish that uncovered paths are safe. CI retains the reports for each matrix combination.
 

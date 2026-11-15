@@ -33,10 +33,10 @@ jobs:
       - name: Set up the pinned lock tool
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          version-file: .tool-versions
+          version-file: pyproject.toml
           enable-cache: false
       - name: Verify the resolved Python lock is current
-        run: uv lock --check
+        run: make lock-check
       - name: Scan the committed dependency versions
         # No package installation or implicit dependency resolution in this scan.
         # A scanner error remains a job failure; it is not treated as an empty result.

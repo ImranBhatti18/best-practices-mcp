@@ -91,7 +91,7 @@ def test_example_host_changes_change_fingerprint(repo: Path) -> None:
         "package-lock.json",
         ".nvmrc",
         "uv.lock",
-        ".tool-versions",
+        ".python-version",
         "codecov.yml",
         "LICENSE",
         "THIRD_PARTY_NOTICES.md",

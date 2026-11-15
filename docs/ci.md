@@ -19,16 +19,15 @@ The six compatibility jobs retain their own measured coverage and installation e
 
 ## Dependency inventory
 
-`uv.lock` is the cross-platform development lockfile for the package and all development extras, including build/release tools. Local `make setup` and release builds install the applicable locked dependencies with `uv sync --locked --extra dev` into `venv`. `.python-version` selects Python 3.11 by default for development; package metadata continues to support Python 3.11 and newer. `package-lock.json` covers the development-only DOM tooling. OSV receives these lockfiles explicitly with implicit resolution disabled. A failed scanner process is not converted into a clean scan. Reports are retained even when findings fail the check, where a report was produced.
+`uv.lock` is the universal development lockfile for runtime dependencies, the installed `dev` group and the non-default `audit-tools` group. Local setup, compatibility CI and release qualification all use `make setup` to synchronize locked dependencies into `venv`. `.python-version` defaults to Python 3.11; CI overrides `BOOTSTRAP_PYTHON` for its 3.11/3.12 matrix. `package-lock.json` covers development-only DOM tooling. See [ADR 0002](adr/0002-development-toolchain.md) for the decision and alternatives.
 
-The uv version is recorded in `.tool-versions` and pinned in the Python development extra. Keep these together when updating the tool. Setup requires uv installed independently of `venv`; the release workflow bootstraps that version before calling Make. pip is also a locked development dependency for offline package installation checks. The normal local interface remains Make and `venv`, with uv managing the environment and locked installation. The compatibility matrix deliberately continues resolving the development extra through pip on each matrix interpreter, and fresh-consumer checks install wheel/sdist dependencies through pip in clean environments. Those checks cover installation without the development lock, so their transitive versions can differ from the OSV inventory. The locked local/release checks and the fresh pip checks provide complementary evidence.
+uv is an external bootstrap tool. Its exact requirement lives in `[tool.uv].required-version`; `setup-uv` reads this from `pyproject.toml`. The matching distribution is locked in `audit-tools` solely for inventory and is excluded from normal setup. `make tooling-check` checks agreement between these declarations and `uv.lock`; `.tool-versions` and asdf are not used. pip remains a locked development dependency for offline package checks.
 
-Use the maintained Make targets for dependency checks and lock updates. Their underlying commands are:
+OSV scans both committed lockfiles explicitly with implicit resolution disabled, including the uv audit entry. This inventories declared package versions rather than attesting to installed bootstrap binaries or every OS tool. Scanner failures remain failures, and reports are retained when produced. Fresh-consumer checks install wheels and sdists through pip in clean environments without the development lock, so their transitive versions can differ from the scanned inventory.
 
-```sh
-uv lock --check
-uv lock
-```
+All six compatibility jobs invoke the canonical Make targets for setup, quality, lock/catalog checks, coverage, offline wheel checks and fresh-consumer installation. Windows invokes native GNU Make 4.4.1 from PowerShell; the Makefile selects `cmd.exe` recipes. Every matrix job uses `build/dev venv` to exercise paths containing spaces. Help is tested before environment creation. Release qualification also uses Make, while its publishing job retains its separate trust boundary.
+
+Use `make lock` to regenerate the lock and `make lock-check` to verify it. For a uv update, change both the executable requirement and the audit-group pin, install the new external version, regenerate the lock, and rerun setup and checks.
 
 Review the lock diff and rerun the required checks when accepting dependency updates. Dependabot proposes weekly grouped Python/uv, npm and GitHub Actions updates, with conventional PR-title prefixes. Major Python/npm updates remain separate for deliberate compatibility review; grouped security updates remain reviewable and do not auto-merge. Dependabot configuration does not itself enable repository vulnerability alerts or security-update settings; enable those in the new repository.
 

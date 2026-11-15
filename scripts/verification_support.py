@@ -31,7 +31,7 @@ def source_fingerprint(root: Path) -> str:
             "package-lock.json",
             ".nvmrc",
             "uv.lock",
-            ".tool-versions",
+            ".python-version",
             "codecov.yml",
             "LICENSE",
             "THIRD_PARTY_NOTICES.md",

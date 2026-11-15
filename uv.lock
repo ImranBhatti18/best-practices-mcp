@@ -59,7 +59,10 @@ dependencies = [
     { name = "pydantic" },
 ]
 
-[package.optional-dependencies]
+[package.dev-dependencies]
+audit-tools = [
+    { name = "uv" },
+]
 dev = [
     { name = "build" },
     { name = "coverage" },
@@ -71,28 +74,30 @@ dev = [
     { name = "ruff" },
     { name = "setuptools" },
     { name = "twine" },
-    { name = "uv" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "anyio", specifier = "==4.16.0" },
-    { name = "build", marker = "extra == 'dev'", specifier = "==1.6.1" },
-    { name = "coverage", marker = "extra == 'dev'", specifier = "==7.17.2" },
     { name = "httpx2", specifier = "==2.16.0" },
-    { name = "jsonschema", marker = "extra == 'dev'", specifier = "==4.26.0" },
     { name = "mcp", specifier = "==2.3.0" },
-    { name = "packaging", marker = "extra == 'dev'", specifier = "==26.3" },
-    { name = "pip", marker = "extra == 'dev'", specifier = "==26.3" },
     { name = "pydantic", specifier = "==2.14.3" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = "==9.2.0" },
-    { name = "pyyaml", marker = "extra == 'dev'", specifier = "==6.0.3" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = "==0.17.4" },
-    { name = "setuptools", marker = "extra == 'dev'", specifier = "==84.2.1" },
-    { name = "twine", marker = "extra == 'dev'", specifier = "==7.0.0" },
-    { name = "uv", marker = "extra == 'dev'", specifier = "==0.13.7" },
 ]
-provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+audit-tools = [{ name = "uv", specifier = "==0.13.7" }]
+dev = [
+    { name = "build", specifier = "==1.6.1" },
+    { name = "coverage", specifier = "==7.17.2" },
+    { name = "jsonschema", specifier = "==4.26.0" },
+    { name = "packaging", specifier = "==26.3" },
+    { name = "pip", specifier = "==26.3" },
+    { name = "pytest", specifier = "==9.2.0" },
+    { name = "pyyaml", specifier = "==6.0.3" },
+    { name = "ruff", specifier = "==0.17.4" },
+    { name = "setuptools", specifier = "==84.2.1" },
+    { name = "twine", specifier = "==7.0.0" },
+]
 
 [[package]]
 name = "build"

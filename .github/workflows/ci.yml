@@ -26,11 +26,12 @@ jobs:
         python: ['3.11', '3.12']
     defaults:
       run:
-        shell: bash
+        shell: ${{ matrix.os == 'windows-2025' && 'pwsh' || 'bash' }}
     env:
       PYTHONUTF8: '1'
       PIP_DISABLE_PIP_VERSION_CHECK: '1'
-      VENV_PYTHON: ${{ matrix.os == 'windows-2025' && 'venv/Scripts/python.exe' || 'venv/bin/python' }}
+      BOOTSTRAP_PYTHON: ${{ matrix.python }}
+      VENV: build/dev venv
       CI_MATRIX_OS: ${{ matrix.os }}
       CI_MATRIX_PYTHON: ${{ matrix.python }}
     steps:
@@ -49,26 +50,33 @@ jobs:
         with:
           node-version: '24'
           package-manager-cache: false
-      - name: Install development environment
+      - name: Set up the pinned environment manager
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version-file: pyproject.toml
+          enable-cache: false
+      - name: Install native GNU Make on Windows
+        if: runner.os == 'Windows'
         run: |
-          python -m venv venv
-          "$VENV_PYTHON" -m pip install -e '.[dev]'
-          "$VENV_PYTHON" -m pip check
-          npm ci --ignore-scripts
-      - name: Formatting, lint and catalog reproduction
-        if: matrix.os == 'ubuntu-24.04' && matrix.python == '3.11'
-        run: |
-          "$VENV_PYTHON" -m ruff format --check src tests examples scripts
-          "$VENV_PYTHON" -m ruff check src tests examples scripts
-          "$VENV_PYTHON" scripts/generate_catalog.py --check
+          choco install make --version=4.4.1 --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "$env:ChocolateyInstall/bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Verify task help before environment setup
+        run: make help
+      - name: Install the locked development environment
+        run: make setup setup-dom
+      - name: Formatting, lint, lock and catalog reproduction
+        run: make quality catalog-check lock-check
       - name: Offline regression with line and branch coverage
-        run: '"$VENV_PYTHON" scripts/check_coverage.py'
+        run: make test-coverage
+      - name: Offline installed wheel check
+        run: make test-package
       - name: Fresh wheel and sdist installation outside checkout
         if: ${{ !cancelled() }}
-        run: '"$VENV_PYTHON" scripts/check_fresh_package.py --allow-downloads --output build/verification/fresh-package.json'
+        run: make check-fresh-package
       - name: Record exact execution environment
         if: ${{ always() }}
-        run: python scripts/ci_environment.py --output build/verification/environment.json
+        run: make ci-environment PYTHON=python
       - name: Retain test, coverage and package evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

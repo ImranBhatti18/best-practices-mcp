@@ -95,7 +95,6 @@ def check_archives(dist: Path) -> Path:
             "/.nvmrc",
             "/.python-version",
             "/uv.lock",
-            "/.tool-versions",
             "/.github/release-please-config.json",
             "/.github/.release-please-manifest.json",
             "/examples/host.py",
