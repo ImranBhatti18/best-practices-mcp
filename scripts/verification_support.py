@@ -47,6 +47,7 @@ def source_fingerprint(root: Path) -> str:
             "uv.lock",
             "osv-scanner.toml",
             ".pre-commit-config.yaml",
+            ".gitattributes",
             ".python-version",
             "codecov.yml",
             "LICENSE",

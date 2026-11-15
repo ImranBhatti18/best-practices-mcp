@@ -28,6 +28,8 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/) independen
 
 Install GNU Make and Node 24. On macOS, Make is available with the command-line developer tools; on Linux, use the distribution's package manager. On Windows, one supported route is `choco install make --version=4.4.1 --yes` from an elevated PowerShell with [Chocolatey](https://community.chocolatey.org/packages/make/4.4.1) already installed. Reopen the terminal if needed to refresh `PATH`. Use native Windows Python/uv/Node with native Make; Git Bash and WSL are not prerequisites. On Unix systems with nvm, `nvm use` selects the project's Node version; Windows contributors can install Node 24 directly.
 
+The repository's [`.gitattributes`](.gitattributes) keeps text files at LF line endings on every platform, including Windows with `core.autocrlf=true`. Vendored upstream files and the copied upstream license are exempt from conversion because their exact bytes are checked. Save source files with LF endings in your editor; no global Git setting change is required. For an older Windows checkout already containing CRLF files, commit or stash your work and use a fresh clone to apply the policy without overwriting local edits.
+
 The same commands work from a Unix shell or Windows PowerShell:
 
 ```sh
@@ -41,7 +43,7 @@ make build
 
 `make help` reads the Makefile's annotated targets through a small Python helper and works before project setup. uv can supply Python if necessary. `make setup` uses `uv sync --locked --group dev --no-group audit-tools` to create or synchronize `venv`, installing this package in editable mode and the development dependencies from [`uv.lock`](uv.lock). `.python-version` supplies the interpreter preference; `--locked` fails if metadata and the lock disagree. Synchronization removes unselected packages, so keep unrelated tools in separate environments. pip is an explicit development dependency for offline package installation checks.
 
-The Makefile exports `UV_PROJECT_ENVIRONMENT=venv` and selects `venv/bin/python` or `venv/Scripts/python.exe`. Activation is unnecessary. Direct uv project commands must select the same environment: set `UV_PROJECT_ENVIRONMENT` to `venv` in your shell before using `uv sync` or `uv run`, otherwise uv defaults to `.venv`. Prefer the Make targets for repeated operations.
+The Makefile exports `UV_PROJECT_ENVIRONMENT=venv` and selects `venv/bin/python` or `venv/Scripts/python.exe`. Activation is unnecessary. Direct uv project commands must select the same environment: run `export UV_PROJECT_ENVIRONMENT=venv` in a Unix shell or `$env:UV_PROJECT_ENVIRONMENT = "venv"` in PowerShell before using `uv sync` or `uv run`, otherwise uv defaults to `.venv`. Prefer the Make targets for repeated operations.
 
 Override `BOOTSTRAP_PYTHON` to test another interpreter, preferably in a separate environment: `make setup VENV=venv-3.12 BOOTSTRAP_PYTHON=3.12`, followed by `make check VENV=venv-3.12 BOOTSTRAP_PYTHON=3.12`. Add custom environment directories to your local Git excludes. Paths containing spaces can be passed as one quoted argument, for example `make setup "VENV=build/dev venv"`. Overrides do not edit `.python-version` or narrow the universal lock.
 
@@ -57,11 +59,18 @@ The interactive reference host remains available; its deprecation is [planned](d
 
 `make setup-dom` uses npm with the committed lockfile; Node 24/jsdom are development-only test dependencies and never part of the MCP runtime. Required tests follow documented upstream procedures, criteria YAML and agreed MCP compatibility rules. They execute generated scripts against synthetic source-derived forms for the approved fallback. Synthetic forms test defensive JavaScript behavior; a locally supervised live browser check separately tests actual website compatibility. See the [testing policy](docs/testing-policy.md) for authority and traceability.
 
-The installed CLI supports:
+The installed CLI supports these commands on macOS/Linux:
 
 ```sh
 venv/bin/bestpractices-mcp --help
 venv/bin/bestpractices-mcp --version
+```
+
+On Windows PowerShell:
+
+```powershell
+.\venv\Scripts\bestpractices-mcp.exe --help
+.\venv\Scripts\bestpractices-mcp.exe --version
 ```
 
 Running it without arguments starts the stdio server and waits for an MCP host. Protocol traffic uses stdout; diagnostics must use stderr.
@@ -159,6 +168,12 @@ For an independent stored workflow, pass a dedicated absolute root:
 venv/bin/python examples/host.py --mode stored --data-dir /absolute/path/to/drafts
 ```
 
+On Windows PowerShell, use a dedicated absolute Windows path:
+
+```powershell
+.\venv\Scripts\python.exe examples/host.py --mode stored --data-dir "C:\mcp-work\drafts"
+```
+
 Automated tests and package probes use temporary storage, never the normal draft directory.
 
 ## Inspect the implemented tools
@@ -167,6 +182,12 @@ MCP Inspector 2.14.0 can connect to this stdio server in modern protocol mode:
 
 ```sh
 npx -y @modelcontextprotocol/inspector@2.14.0 --protocol-era modern ./venv/bin/bestpractices-mcp
+```
+
+On Windows PowerShell, use `npx.cmd` and the Windows server executable:
+
+```powershell
+npx.cmd -y @modelcontextprotocol/inspector@2.14.0 --protocol-era modern .\venv\Scripts\bestpractices-mcp.exe
 ```
 
 Use Node 24.22.1 or another version supported by that Inspector release. Discovery, get_criteria, build_draft, read_draft, update_draft and validate_draft are offline. update_draft mutates local storage; use a disposable absolute BESTPRACTICES_DATA_DIR for Inspector tests. find_project, get_project_progress and artifact generation make public BadgeApp GETs. No tool authenticates or submits changes. For a reproducible CLI schema check, add `--cli --method tools/list --strict --format json`. See [schema compatibility](docs/schema-compatibility.md) for official guidance and the distinction between portability lint and MCP conformance.

@@ -93,6 +93,7 @@ def test_example_host_changes_change_fingerprint(repo: Path) -> None:
         "uv.lock",
         "osv-scanner.toml",
         ".pre-commit-config.yaml",
+        ".gitattributes",
         ".python-version",
         "codecov.yml",
         "LICENSE",

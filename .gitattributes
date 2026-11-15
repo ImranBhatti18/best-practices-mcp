@@ -1,0 +1,6 @@
+# Use LF for repository text on every platform; leave binary files unchanged.
+* text=auto eol=lf
+
+# Preserve upstream bytes used by provenance hashes and the copied license.
+vendor/** -text
+src/best_practices_mcp/data/BADGEAPP-LICENSE.txt -text
