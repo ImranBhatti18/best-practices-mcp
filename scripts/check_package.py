@@ -93,6 +93,7 @@ def check_archives(dist: Path) -> Path:
             "/package.json",
             "/package-lock.json",
             "/.nvmrc",
+            "/.python-version",
             "/uv.lock",
             "/.tool-versions",
             "/.github/release-please-config.json",

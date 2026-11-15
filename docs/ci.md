@@ -19,15 +19,15 @@ The six compatibility jobs retain their own measured coverage and installation e
 
 ## Dependency inventory
 
-`uv.lock` is the resolved cross-platform Python inventory for the package and all development extras, including build/release tools. `package-lock.json` covers the development-only DOM tooling. OSV receives these lockfiles explicitly with implicit resolution disabled. A failed scanner process is not converted into a clean scan. Reports are retained even when findings fail the check, where a report was produced.
+`uv.lock` is the cross-platform development lockfile for the package and all development extras, including build/release tools. Local `make setup` and release builds install the applicable locked dependencies with `uv sync --locked --extra dev` into `venv`. `.python-version` selects Python 3.11 by default for development; package metadata continues to support Python 3.11 and newer. `package-lock.json` covers the development-only DOM tooling. OSV receives these lockfiles explicitly with implicit resolution disabled. A failed scanner process is not converted into a clean scan. Reports are retained even when findings fail the check, where a report was produced.
 
-The uv version is recorded in `.tool-versions` and pinned in the Python development extra. Keep these together when updating the tool. The normal project interface remains `venv` plus Make/pip; this lock does not silently migrate server installation to uv. The compatibility and fresh-consumer package checks resolve the declared dependencies through pip, so the committed OSV inventory is not a claim that every consumer resolver result is identical to that lock. A new compatible transitive version can be selected by pip; lock refresh and scheduled scans provide a reviewed inventory, while fresh-install tests separately check consumer compatibility.
+The uv version is recorded in `.tool-versions` and pinned in the Python development extra. Keep these together when updating the tool. Setup requires uv installed independently of `venv`; the release workflow bootstraps that version before calling Make. pip is also a locked development dependency for offline package installation checks. The normal local interface remains Make and `venv`, with uv managing the environment and locked installation. The compatibility matrix deliberately continues resolving the development extra through pip on each matrix interpreter, and fresh-consumer checks install wheel/sdist dependencies through pip in clean environments. Those checks cover installation without the development lock, so their transitive versions can differ from the OSV inventory. The locked local/release checks and the fresh pip checks provide complementary evidence.
 
 Use the maintained Make targets for dependency checks and lock updates. Their underlying commands are:
 
 ```sh
-venv/bin/uv lock --check
-venv/bin/uv lock
+uv lock --check
+uv lock
 ```
 
 Review the lock diff and rerun the required checks when accepting dependency updates. Dependabot proposes weekly grouped Python/uv, npm and GitHub Actions updates, with conventional PR-title prefixes. Major Python/npm updates remain separate for deliberate compatibility review; grouped security updates remain reviewable and do not auto-merge. Dependabot configuration does not itself enable repository vulnerability alerts or security-update settings; enable those in the new repository.

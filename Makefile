@@ -1,12 +1,12 @@
 .DEFAULT_GOAL := help
 
-BOOTSTRAP_PYTHON ?= python3
+BOOTSTRAP_PYTHON ?= $(shell cat .python-version)
 VENV ?= venv
 PYTHON ?= $(VENV)/bin/python
 PIP ?= $(PYTHON) -m pip
 NPM ?= npm
 NODE ?= node
-UV ?= $(VENV)/bin/uv
+UV ?= uv
 ACTIONLINT ?= actionlint
 RELEASE_DIST ?= build/release/dist
 RELEASE_EVIDENCE ?= build/release/evidence.json
@@ -17,11 +17,8 @@ RELEASE_ARGS ?=
 help: ## Show available development commands
 	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-12s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-$(VENV)/pyvenv.cfg:
-	$(BOOTSTRAP_PYTHON) -m venv $(VENV)
-
-setup: $(VENV)/pyvenv.cfg ## Create venv and install this package with development tools
-	$(PIP) install -e '.[dev]'
+setup: ## Sync venv and editable development dependencies from uv.lock (Python 3.11 by default)
+	UV_PROJECT_ENVIRONMENT="$(VENV)" $(UV) sync --locked --extra dev --python "$(BOOTSTRAP_PYTHON)"
 
 check: ## Check formatting, lint, dependency consistency, and tests
 	$(PYTHON) -m ruff format --check src tests examples scripts
@@ -125,10 +122,10 @@ check-fresh-package: ## Build/install wheel and sdist in fresh temporary venvs (
 
 .PHONY: lock lock-check workflow-check release-check release-build release-artifacts release-qualify
 
-lock: ## Refresh the cross-platform development dependency inventory (network)
+lock: ## Resolve project metadata into the cross-platform development lockfile (network)
 	$(UV) lock
 
-lock-check: ## Verify the committed dependency inventory matches project metadata
+lock-check: ## Verify the committed lockfile matches project metadata
 	$(UV) lock --check
 
 workflow-check: ## Lint all GitHub Actions workflows (requires actionlint)
