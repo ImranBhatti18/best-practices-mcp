@@ -16,6 +16,8 @@ Declare uv's executable requirement in `[tool.uv].required-version`, which uv en
 
 OSV scans the committed Python and npm locks without implicit resolution. This covers the recorded package versions, including uv; it does not attest to every locally installed executable or inventory the whole operating-system toolchain. Fresh wheel/sdist checks continue using pip in clean environments, exercising consumer installation independently of the development lock. Server users need neither Make nor uv.
 
+Make is part of the release toolchain: it orchestrates builds through Python's `build` frontend and the setuptools backend, but consumers do not need Make to build or install the package. CI environment evidence and release candidate evidence record the invoked GNU Make version, including when a custom executable is used. Windows installation remains pinned to 4.4.1; Linux and macOS use their platform-provided Make. GNU Make is outside the current OSV scan scope. Version recording provides traceability, not vulnerability coverage; adding that coverage would require a suitable system-package or toolchain inventory rather than a Python dependency entry.
+
 ## Alternatives considered
 
 - Keep pip/venv for development and uv only for scanning: leaves separate resolution paths and an unnecessary contributor distinction between setup and lock maintenance.

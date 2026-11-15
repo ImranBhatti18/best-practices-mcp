@@ -17,6 +17,7 @@ from zipfile import ZipFile
 
 from packaging.utils import canonicalize_name
 from packaging.version import Version
+from verification_support import make_version
 
 ROOT = Path(__file__).resolve().parents[1]
 TAG = re.compile(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-beta\.([1-9][0-9]*))?")
@@ -206,7 +207,7 @@ def qualify_exact_archives(dist: Path, output: Path, report: dict | None = None)
 def check_candidate(root: Path, dist: Path, output: Path, allow_downloads: bool) -> dict:
     """Replace prior evidence before checking; preserve partial evidence on failure."""
     output.parent.mkdir(parents=True, exist_ok=True)
-    report = {"status": "running", "artifacts": {}}
+    report = {"status": "running", "artifacts": {}, "toolchain": {"make": make_version()}}
     output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     output.with_suffix(".log").write_text("Release candidate validation\n", encoding="utf-8")
     try:

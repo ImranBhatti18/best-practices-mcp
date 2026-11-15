@@ -3,11 +3,25 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def make_version() -> str:
+    """Record only the GNU Make version, without executable paths or license text."""
+    executable = os.environ.get("VERIFICATION_MAKE", "make")
+    try:
+        result = subprocess.run(
+            [executable, "--version"], capture_output=True, text=True, timeout=10, check=True
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unavailable"
+    match = re.match(r"GNU Make ([0-9]+(?:\.[0-9]+)+)\b", result.stdout)
+    return match[1] if match else "unavailable"
 
 
 def git(root: Path, *args: str) -> str:

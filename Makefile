@@ -27,6 +27,8 @@ RELEASE_ARGS ?=
 
 export UV_PROJECT_ENVIRONMENT := $(VENV)
 export NODE
+# Evidence must identify this Make executable, including gmake/custom paths.
+export VERIFICATION_MAKE := $(MAKE)
 
 .PHONY: help setup quality tooling-check ci-environment check test format build run example test-contract test-catalog test-protocol test-package catalog catalog-check test-network test-api test-host host smoke-live
 

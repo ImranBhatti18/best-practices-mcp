@@ -15,7 +15,7 @@ The workflows maintain the bounded eleven-tool MCP; they do not add runtime serv
 | Scorecard supply-chain review | Public default-branch pushes, branch-protection changes, weekly schedule and manual runs | Public `reponomics/best-practices-mcp`; results are review guidance, not an arbitrary score threshold |
 | Release Please / PyPI | Release PR management and approved tagged publication | Release App and PyPI OIDC/environment setup; see [releasing](releasing.md) |
 
-The six compatibility jobs retain their own measured coverage and installation evidence. Codecov shows server coverage trends from one representative matrix job; it does not replace the Windows/macOS results or imply combined multi-platform coverage. Its project and patch percentage statuses are informational. Tests and report-generation failures remain failures; no percentage threshold is substituted for the behavioral contract.
+The six compatibility jobs retain their own measured coverage and installation evidence. Their environment reports also record the invoked GNU Make version (`make`), or `unavailable` if it cannot be determined; this is provenance information, outside the current OSV scan scope. Codecov shows server coverage trends from one representative matrix job; it does not replace the Windows/macOS results or imply combined multi-platform coverage. Its project and patch percentage statuses are informational. Tests and report-generation failures remain failures; no percentage threshold is substituted for the behavioral contract.
 
 ## Dependency inventory
 

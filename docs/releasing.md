@@ -60,7 +60,7 @@ make release-artifacts
 make release-qualify
 ```
 
-`release-build` requires a clean candidate distribution directory to avoid mixing old and new releases. `release-artifacts` checks metadata and records SHA-256 hashes. `release-qualify` explicitly permits dependency downloads and tests the existing candidate archives without rebuilding them. Reports and sanitized logs stay under ignored `build/release/`.
+`release-build` requires a clean candidate distribution directory to avoid mixing old and new releases. `release-artifacts` checks metadata and records SHA-256 hashes. Its evidence also records the invoked GNU Make version under `toolchain.make`, or `unavailable` if detection fails, including in reports of failed candidate validation. Make orchestrates release assembly but is outside the current OSV dependency scan scope; see [ADR 0002](adr/0002-development-toolchain.md). `release-qualify` explicitly permits dependency downloads and tests the existing candidate archives without rebuilding them. Reports and sanitized logs stay under ignored `build/release/`.
 
 For a tagged release checkout with the Release Please manifest already updated, source validation can be reproduced with:
 

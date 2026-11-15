@@ -9,6 +9,8 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+from verification_support import make_version
+
 
 def output(command: list[str]) -> str:
     try:
@@ -28,6 +30,7 @@ def main() -> None:
         "os": platform.platform(),
         "architecture": platform.machine(),
         "node": output(["node", "--version"]),
+        "make": make_version(),
         "matrix_os": os.environ.get("CI_MATRIX_OS"),
         "matrix_python": os.environ.get("CI_MATRIX_PYTHON"),
         "runner_os": os.environ.get("RUNNER_OS"),

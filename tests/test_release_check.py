@@ -236,7 +236,8 @@ def test_qualification_receives_exact_candidates_without_rebuilding(project, mon
     assert {path.suffix for path, _ in calls} == {".whl", ".gz"}
 
 
-def test_failed_candidate_validation_replaces_previous_pass(project):
+def test_failed_candidate_validation_replaces_previous_pass(project, monkeypatch):
+    monkeypatch.setattr(release, "make_version", lambda: "4.4.1")
     output = project / "evidence.json"
     output.write_text('{"status":"passed","artifacts":{"old.whl":{}}}')
     output.with_suffix(".log").write_text("Old successful installation")
@@ -247,6 +248,7 @@ def test_failed_candidate_validation_replaces_previous_pass(project):
     evidence = json.loads(output.read_text())
     assert evidence["status"] == "failed"
     assert evidence["artifacts"] == {}
+    assert evidence["toolchain"]["make"] == "4.4.1"
     assert "Old successful" not in output.with_suffix(".log").read_text()
 
 

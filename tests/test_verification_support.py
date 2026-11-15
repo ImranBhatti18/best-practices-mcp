@@ -119,3 +119,44 @@ def test_sanitizer_removes_account_paths_and_url_queries(repo: Path) -> None:
 def test_sanitizer_preserves_status_and_urls_without_queries(repo: Path) -> None:
     text = "3 passed, 1 skipped\nSee https://example.org/checks for details."
     assert verification.sanitize(text, repo) == text
+
+
+@pytest.mark.parametrize("version", ["3.81", "4.4.1"])
+def test_make_version_uses_selected_executable_without_retaining_paths(monkeypatch, version):
+    executable = "/custom tools/gmake"
+    monkeypatch.setenv("VERIFICATION_MAKE", executable)
+
+    def run(command, **kwargs):
+        assert command == [executable, "--version"]
+        assert kwargs == {"capture_output": True, "text": True, "timeout": 10, "check": True}
+        return subprocess.CompletedProcess(command, 0, f"GNU Make {version}\nPrivate build path")
+
+    monkeypatch.setattr(verification.subprocess, "run", run)
+    assert verification.make_version() == version
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        FileNotFoundError(),
+        subprocess.CalledProcessError(1, "make"),
+        subprocess.TimeoutExpired("make", 10),
+    ],
+)
+def test_make_version_reports_unavailable_on_probe_failure(monkeypatch, error):
+    def run(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(verification.subprocess, "run", run)
+    assert verification.make_version() == "unavailable"
+
+
+def test_make_version_rejects_unrecognized_output(monkeypatch):
+    monkeypatch.delenv("VERIFICATION_MAKE", raising=False)
+
+    def run(command, **kwargs):
+        assert command == ["make", "--version"]
+        return subprocess.CompletedProcess(command, 0, "different tool: /private/path")
+
+    monkeypatch.setattr(verification.subprocess, "run", run)
+    assert verification.make_version() == "unavailable"
