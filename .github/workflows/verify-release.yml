@@ -43,8 +43,8 @@ jobs:
       RELEASE_TAG: ${{ github.event.workflow_run.head_branch || inputs.tag }}
       EXPECTED_SHA: ${{ github.event.workflow_run.head_sha || inputs.commit }}
       REPOSITORY: reponomics/best-practices-mcp
-      BUILDER_WORKFLOW: reponomics/release-infrastructure/.github/workflows/python-release.yml
-      BUILDER_COMMIT: '71c03ce71d2383783954cf77fae51e7205b98741'
+      BUILDER_WORKFLOW: reponomics/release-infrastructure/.github/workflows/attest.yml
+      BUILDER_COMMIT: '4f684c645ece1c84caaf2868df5b146670219683'
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Select the release used in the guide's commands
@@ -129,7 +129,24 @@ jobs:
               --signer-workflow "$SIGNER_WORKFLOW" --signer-digest "$SIGNER_COMMIT" \
               --cert-oidc-issuer https://token.actions.githubusercontent.com \
               --source-ref "refs/tags/$RELEASE_TAG" --source-digest "$EXPECTED_SHA" --deny-self-hosted-runners \
-              --bundle provenance.sigstore.json
+              --bundle provenance.sigstore.json --format json > verified-provenance.json
+            python3 - <<'PYTHON'
+          import json
+          import os
+          from pathlib import Path
+
+          results = json.loads(Path('verified-provenance.json').read_text())
+          expected = {'workflow': {
+              'repository': 'https://github.com/' + os.environ['REPOSITORY'],
+              'ref': 'refs/tags/' + os.environ['RELEASE_TAG'],
+              'path': '.github/workflows/release.yml',
+          }}
+          if not results or any(
+              item['verificationResult']['statement']['predicate']['buildDefinition']['externalParameters'] != expected
+              for item in results
+          ):
+              raise SystemExit('Unexpected source workflow or external build parameters')
+          PYTHON
           done
       - name: 3. Verify PyPI's publisher attestations
         run: |
