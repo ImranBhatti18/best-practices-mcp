@@ -164,12 +164,27 @@ jobs:
             --signer-workflow "$SIGNER_WORKFLOW" --signer-digest "$SIGNER_COMMIT" \
             --cert-oidc-issuer https://token.actions.githubusercontent.com \
             --source-ref "refs/tags/$RELEASE_TAG" --source-digest "$EXPECTED_SHA" --deny-self-hosted-runners \
-            --predicate-type https://cyclonedx.org/bom --bundle runtime-wheel.sigstore.json
+            --predicate-type https://cyclonedx.org/bom --bundle runtime-wheel.sigstore.json --format json > verified-wheel-sbom.json
           gh attestation verify "$SDIST" --repo "$REPOSITORY" \
             --signer-workflow "$SIGNER_WORKFLOW" --signer-digest "$SIGNER_COMMIT" \
             --cert-oidc-issuer https://token.actions.githubusercontent.com \
             --source-ref "refs/tags/$RELEASE_TAG" --source-digest "$EXPECTED_SHA" --deny-self-hosted-runners \
-            --predicate-type https://cyclonedx.org/bom --bundle runtime-sdist.sigstore.json
+            --predicate-type https://cyclonedx.org/bom --bundle runtime-sdist.sigstore.json --format json > verified-sdist-sbom.json
+          python3 - <<'PYTHON'
+          import json
+          import os
+          from pathlib import Path
+
+          expected_uri = 'https://github.com/' + os.environ['REPOSITORY'] + '/.github/workflows/release.yml@refs/tags/' + os.environ['RELEASE_TAG']
+          for name in ('verified-provenance.json', 'verified-wheel-sbom.json', 'verified-sdist-sbom.json'):
+              results = json.loads(Path(name).read_text())
+              if not results:
+                  raise SystemExit('No verified attestation')
+              for item in results:
+                  certificate = item['verificationResult']['signature']['certificate']
+                  if certificate['buildConfigURI'] != expected_uri or certificate['buildConfigDigest'] != os.environ['EXPECTED_SHA']:
+                      raise SystemExit('Unexpected authenticated source workflow')
+          PYTHON
       - name: Retain command output for troubleshooting
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -97,7 +97,7 @@ jobs:
             --bundle "$provenance" --format json > evidence/verified-provenance.json
           gh attestation verify "$artifact" "${common[@]}" "${signer[@]}" \
             --bundle signatures/qualification-sbom.sigstore.json \
-            --predicate-type https://cyclonedx.org/bom > evidence/verified-sbom.txt 2>&1
+            --predicate-type https://cyclonedx.org/bom --format json > evidence/verified-sbom.json
           printf 'PASS original artifact and SBOM\n' > evidence/results.txt
           reject() {
             local label="$1"
@@ -140,8 +140,18 @@ jobs:
           unexpected = {'workflow': {**expected['workflow'], 'path': '.github/workflows/unexpected.yml'}}
           if any(value == unexpected for value in observed):
               raise SystemExit('Accepted an unexpected source workflow')
+          expected_uri = 'https://github.com/' + os.environ['GITHUB_REPOSITORY'] + '/.github/workflows/qualify-attestations.yml@' + os.environ['GITHUB_REF']
+          for name in ('verified-provenance.json', 'verified-sbom.json'):
+              verified = json.loads((Path('evidence') / name).read_text())
+              if not verified:
+                  raise SystemExit('No verified attestation')
+              for item in verified:
+                  certificate = item['verificationResult']['signature']['certificate']
+                  if certificate['buildConfigURI'] != expected_uri or certificate['buildConfigDigest'] != os.environ['GITHUB_SHA']:
+                      raise SystemExit('Unexpected authenticated source workflow')
           with Path('evidence/results.txt').open('a') as output:
               output.write('PASS caller workflow identity and unexpected workflow rejection\n')
+              output.write('PASS source workflow certificate identity for provenance and SBOM\n')
           PY
           # Confirm the negative cases did not merely encounter an unavailable verifier.
           gh attestation verify "$artifact" "${common[@]}" "${signer[@]}" \

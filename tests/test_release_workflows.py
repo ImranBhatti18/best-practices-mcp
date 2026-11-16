@@ -292,14 +292,33 @@ def test_exact_external_artifacts_verified_before_pypi_upload():
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Release verification runs in bash on Linux")
-@pytest.mark.parametrize("mutation", [None, "workflow", "repository", "ref", "parameters"])
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        None,
+        "workflow",
+        "repository",
+        "ref",
+        "parameters",
+        "provenance_certificate_workflow",
+        "provenance_certificate_digest",
+        "sbom_certificate_workflow",
+        "sbom_certificate_digest",
+    ],
+)
 def test_signature_verification_binds_builder_and_source(
     candidate, monkeypatch, tmp_path, mutation
 ):
     import subprocess
 
     gh = tmp_path / "gh"
-    gh.write_text('#!/bin/sh\nprintf "%s\\n" "$@" >> "$GH_CALLS"\ncat "$GH_RESULT"\n')
+    gh.write_text(
+        '#!/bin/sh\nprintf "%s\\n" "$@" >> "$GH_CALLS"\n'
+        'case " $* " in\n'
+        '  *" --predicate-type https://cyclonedx.org/bom "*) cat "$GH_SBOM_RESULT" ;;\n'
+        '  *) cat "$GH_RESULT" ;;\n'
+        "esac\n"
+    )
     gh.chmod(0o755)
     import os
 
@@ -323,15 +342,45 @@ def test_signature_verification_binds_builder_and_source(
     parameters["workflow"].update(mutations.get(mutation, {}))
     if mutation == "parameters":
         parameters["inputs"] = {"compiler-flags": "unrecorded-build-control"}
+    certificate = {
+        "buildConfigURI": "https://github.com/reponomics/best-practices-mcp/.github/workflows/release.yml@refs/tags/v0.2.0-beta.1",
+        "buildConfigDigest": "a" * 40,
+    }
+    certificate_mutations = {
+        "provenance_certificate_workflow": {
+            "buildConfigURI": "https://github.com/reponomics/best-practices-mcp/.github/workflows/unexpected.yml@refs/tags/v0.2.0-beta.1"
+        },
+        "provenance_certificate_digest": {"buildConfigDigest": "b" * 40},
+    }
+    provenance_certificate = {**certificate, **certificate_mutations.get(mutation, {})}
+    sbom_mutations = {
+        "sbom_certificate_workflow": {
+            "buildConfigURI": "https://github.com/reponomics/best-practices-mcp/.github/workflows/unexpected.yml@refs/tags/v0.2.0-beta.1"
+        },
+        "sbom_certificate_digest": {"buildConfigDigest": "b" * 40},
+    }
+    sbom_certificate = {**certificate, **sbom_mutations.get(mutation, {})}
+    sbom_result = tmp_path / "gh-sbom-result.json"
+    sbom_result.write_text(
+        json.dumps(
+            [
+                {
+                    "verificationResult": {"signature": {"certificate": sbom_certificate}},
+                }
+            ]
+        )
+    )
+    monkeypatch.setenv("GH_SBOM_RESULT", str(sbom_result))
     result = tmp_path / "gh-result.json"
     result.write_text(
         json.dumps(
             [
                 {
                     "verificationResult": {
+                        "signature": {"certificate": provenance_certificate},
                         "statement": {
                             "predicate": {"buildDefinition": {"externalParameters": parameters}}
-                        }
+                        },
                     }
                 }
             ]

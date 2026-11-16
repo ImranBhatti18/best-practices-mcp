@@ -361,7 +361,22 @@ jobs:
               --signer-workflow "$BUILDER_WORKFLOW" --signer-digest "$BUILDER_COMMIT" \
               --cert-oidc-issuer https://token.actions.githubusercontent.com \
               --source-ref "refs/tags/$RELEASE_TAG" --source-digest "$GITHUB_SHA" --deny-self-hosted-runners \
-              --predicate-type https://cyclonedx.org/bom --bundle "$sbom_bundle"
+              --predicate-type https://cyclonedx.org/bom --bundle "$sbom_bundle" --format json > verified-sbom.json
+            python3 - <<'PYTHON'
+          import json
+          import os
+          from pathlib import Path
+
+          expected_uri = 'https://github.com/' + os.environ['GITHUB_REPOSITORY'] + '/.github/workflows/release.yml@refs/tags/' + os.environ['RELEASE_TAG']
+          for name in ('verified-provenance.json', 'verified-sbom.json'):
+              results = json.loads(Path(name).read_text())
+              if not results:
+                  raise SystemExit('No verified attestation')
+              for item in results:
+                  certificate = item['verificationResult']['signature']['certificate']
+                  if certificate['buildConfigURI'] != expected_uri or certificate['buildConfigDigest'] != os.environ['GITHUB_SHA']:
+                      raise SystemExit('Unexpected authenticated source workflow')
+          PYTHON
           done
       - name: Publish unchanged distributions with PyPI attestations
         uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
