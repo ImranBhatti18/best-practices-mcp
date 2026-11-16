@@ -99,9 +99,8 @@ def test_post_publication_checks_each_provenance_certificate(tmp_path, monkeypat
         }
     }
     (tmp_path / "result.json").write_text(json.dumps(result))
-    gh = tmp_path / "gh"
-    gh.write_text(
-        f"#!{sys.executable}\n"
+    gh_script = tmp_path / "mock gh.py"
+    gh_script.write_text(
         "import json, os, sys\n"
         "from pathlib import Path\n"
         "if '--format' in sys.argv:\n"
@@ -111,6 +110,8 @@ def test_post_publication_checks_each_provenance_certificate(tmp_path, monkeypat
         "        cert['buildConfigURI'] = 'unexpected'\n"
         "    print(json.dumps([item]))\n"
     )
+    gh = tmp_path / "gh"
+    gh.write_text('#!/bin/sh\nexec "$TEST_PYTHON" "$TEST_GH_SCRIPT" "$@"\n')
     gh.chmod(0o755)
     for key, value in {
         "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
@@ -123,6 +124,8 @@ def test_post_publication_checks_each_provenance_certificate(tmp_path, monkeypat
         "SIGNER_WORKFLOW": JOB["env"]["BUILDER_WORKFLOW"],
         "SIGNER_COMMIT": JOB["env"]["BUILDER_COMMIT"],
         "UNEXPECTED_ARTIFACT": unexpected,
+        "TEST_PYTHON": sys.executable,
+        "TEST_GH_SCRIPT": str(gh_script),
     }.items():
         monkeypatch.setenv(key, value)
     source = next(
