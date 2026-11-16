@@ -146,6 +146,11 @@ jobs:
               for item in results
           ):
               raise SystemExit('Unexpected source workflow or external build parameters')
+          expected_uri = 'https://github.com/' + os.environ['REPOSITORY'] + '/.github/workflows/release.yml@refs/tags/' + os.environ['RELEASE_TAG']
+          for item in results:
+              certificate = item['verificationResult']['signature']['certificate']
+              if certificate['buildConfigURI'] != expected_uri or certificate['buildConfigDigest'] != os.environ['EXPECTED_SHA']:
+                  raise SystemExit('Unexpected authenticated source workflow')
           PYTHON
           done
       - name: 3. Verify PyPI's publisher attestations
@@ -176,7 +181,7 @@ jobs:
           from pathlib import Path
 
           expected_uri = 'https://github.com/' + os.environ['REPOSITORY'] + '/.github/workflows/release.yml@refs/tags/' + os.environ['RELEASE_TAG']
-          for name in ('verified-provenance.json', 'verified-wheel-sbom.json', 'verified-sdist-sbom.json'):
+          for name in ('verified-wheel-sbom.json', 'verified-sdist-sbom.json'):
               results = json.loads(Path(name).read_text())
               if not results:
                   raise SystemExit('No verified attestation')

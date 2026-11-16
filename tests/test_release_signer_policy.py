@@ -1,6 +1,7 @@
 """Post-publication verification must select only reviewed signer identities."""
 
 import ast
+import sys
 from pathlib import Path
 
 import pytest
@@ -68,3 +69,68 @@ def test_online_and_bundle_verification_use_selected_policy():
         assert source.count('--signer-digest "$SIGNER_COMMIT"') == 2
         assert source.count('--source-digest "$EXPECTED_SHA"') == 2
         assert source.count('--source-ref "refs/tags/$RELEASE_TAG"') == 2
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Release verifier uses bash")
+@pytest.mark.parametrize("unexpected", ["", "wheel.whl", "source.tar.gz"])
+def test_post_publication_checks_each_provenance_certificate(tmp_path, monkeypatch, unexpected):
+    import json
+    import os
+    import subprocess
+
+    assets = tmp_path / "release-verification" / "assets"
+    assets.mkdir(parents=True)
+    expected = {
+        "workflow": {
+            "repository": "https://github.com/reponomics/best-practices-mcp",
+            "ref": "refs/tags/v0.6.0",
+            "path": ".github/workflows/release.yml",
+        }
+    }
+    result = {
+        "verificationResult": {
+            "statement": {"predicate": {"buildDefinition": {"externalParameters": expected}}},
+            "signature": {
+                "certificate": {
+                    "buildConfigURI": "https://github.com/reponomics/best-practices-mcp/.github/workflows/release.yml@refs/tags/v0.6.0",
+                    "buildConfigDigest": "a" * 40,
+                }
+            },
+        }
+    }
+    (tmp_path / "result.json").write_text(json.dumps(result))
+    gh = tmp_path / "gh"
+    gh.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os, sys\n"
+        "from pathlib import Path\n"
+        "if '--format' in sys.argv:\n"
+        "    item = json.loads((Path(os.environ['RUNNER_TEMP']) / 'result.json').read_text())\n"
+        "    if sys.argv[3] == os.environ['UNEXPECTED_ARTIFACT']:\n"
+        "        cert = item['verificationResult']['signature']['certificate']\n"
+        "        cert['buildConfigURI'] = 'unexpected'\n"
+        "    print(json.dumps([item]))\n"
+    )
+    gh.chmod(0o755)
+    for key, value in {
+        "PATH": str(tmp_path) + os.pathsep + os.environ["PATH"],
+        "RUNNER_TEMP": str(tmp_path),
+        "REPOSITORY": "reponomics/best-practices-mcp",
+        "RELEASE_TAG": "v0.6.0",
+        "EXPECTED_SHA": "a" * 40,
+        "WHEEL": "wheel.whl",
+        "SDIST": "source.tar.gz",
+        "SIGNER_WORKFLOW": JOB["env"]["BUILDER_WORKFLOW"],
+        "SIGNER_COMMIT": JOB["env"]["BUILDER_COMMIT"],
+        "UNEXPECTED_ARTIFACT": unexpected,
+    }.items():
+        monkeypatch.setenv(key, value)
+    source = next(
+        item["run"]
+        for item in JOB["steps"]
+        if item["name"] == "2. Verify the distributions' workflow provenance"
+    )
+    completed = subprocess.run(["bash", "-eo", "pipefail", "-c", source], capture_output=True)
+    assert (completed.returncode == 0) is (not unexpected)
+    if unexpected:
+        assert b"Unexpected authenticated source workflow" in completed.stdout + completed.stderr
