@@ -3,6 +3,8 @@
 import ast
 import hashlib
 import json
+import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -193,36 +195,89 @@ def test_draft_preflight_rejects_published_or_mismatched_release(monkeypatch, tm
         run_draft_preflight(monkeypatch, tmp_path, **changes)
 
 
-def test_read_only_build_and_project_free_privileged_jobs():
+def test_pinned_reusable_builder_and_project_free_privileged_jobs():
     assert WORKFLOW["permissions"] == {"contents": "read"}
-    assert "permissions" not in JOBS["build"]
-    assert JOBS["publish"]["permissions"] == {
+    builder = JOBS["build"]
+    workflow, commit = builder["uses"].split("@")
+    assert workflow == "reponomics/release-infrastructure/.github/workflows/python-release.yml"
+    assert re.fullmatch(r"[0-9a-f]{40}", commit)
+    assert WORKFLOW["env"]["BUILDER_WORKFLOW"] == workflow
+    assert WORKFLOW["env"]["BUILDER_COMMIT"] == commit
+    assert builder["permissions"] == {
         "contents": "read",
         "id-token": "write",
         "attestations": "write",
     }
+    assert builder["with"] == {
+        "tag": "${{ inputs.tag }}",
+        "prerelease": "${{ needs.preflight.outputs.prerelease }}",
+    }
+    assert "secrets" not in builder
+    assert JOBS["publish"]["permissions"] == {"contents": "read", "id-token": "write"}
     for name in ("preflight", "publish", "github-release"):
         assert not any("actions/checkout@" in item.get("uses", "") for item in JOBS[name]["steps"])
         assert not any("make " in item.get("run", "") for item in JOBS[name]["steps"])
+        assert not any("actions/attest@" in item.get("uses", "") for item in JOBS[name]["steps"])
     assert JOBS["publish"]["environment"]["name"] == "pypi"
-    assert JOBS["github-release"]["needs"] == ["build", "publish"]
-    assert JOBS["build"]["outputs"]["release_id"] == "${{ needs.preflight.outputs.release_id }}"
-    assert JOBS["github-release"]["env"]["RELEASE_ID"] == "${{ needs.build.outputs.release_id }}"
+    assert JOBS["github-release"]["needs"] == ["preflight", "build", "publish"]
+    assert (
+        JOBS["github-release"]["env"]["RELEASE_ID"] == "${{ needs.preflight.outputs.release_id }}"
+    )
 
 
-def test_scan_failure_blocks_bundle_and_pypi_gets_only_archives():
-    bundle = step("build", "Assemble the successful release bundle")
-    assert "if" not in bundle
+def test_exact_external_artifacts_verified_before_pypi_upload():
     publish = step("publish", "Publish unchanged distributions with PyPI attestations")
     assert publish["with"]["packages-dir"] == "bundle/dist/"
     assert publish["with"]["attestations"] is True
-    vulnerability = step("build", "Scan candidate and tooling dependencies for vulnerabilities")
-    licenses = step("build", "Check candidate and tooling licenses")
-    assert "stdlib-inventory.json" in vulnerability["with"]["scan-args"]
-    assert "stdlib-inventory.json" not in licenses["with"]["scan-args"]
-    for kind in ("wheel", "sdist"):
-        assert f"runtime-{kind}.inventory.json" in vulnerability["with"]["scan-args"]
-        assert f"runtime-{kind}.inventory.json" in licenses["with"]["scan-args"]
+    assert step("publish", "Download this run's exact candidate")["with"]["artifact-ids"] == (
+        "${{ needs.build.outputs.candidate }}"
+    )
+    for job in ("publish", "github-release"):
+        assert step(job, "Download this run's signed bundles")["with"]["artifact-ids"] == (
+            "${{ needs.build.outputs.attestations }}"
+        )
+    names = [item["name"] for item in JOBS["publish"]["steps"]]
+    assert names.index("Verify reviewed builder signatures before publication") < names.index(
+        "Publish unchanged distributions with PyPI attestations"
+    )
+    assert (
+        step("publish", "Verify reviewed builder signatures before publication")["run"]
+        == (step("github-release", "Verify signatures before release attachment")["run"])
+    )
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Release verification runs in bash on Linux")
+def test_signature_verification_binds_builder_and_source(candidate, monkeypatch, tmp_path):
+    import subprocess
+
+    gh = tmp_path / "gh"
+    gh.write_text('#!/bin/sh\nprintf "%s\\n" "$@" >> "$GH_CALLS"\n')
+    gh.chmod(0o755)
+    import os
+
+    monkeypatch.setenv("PATH", str(tmp_path) + os.pathsep + os.environ["PATH"])
+    monkeypatch.setenv("GH_CALLS", str(tmp_path / "calls"))
+    monkeypatch.setenv("GITHUB_REPOSITORY", "reponomics/best-practices-mcp")
+    monkeypatch.setenv("BUILDER_WORKFLOW", WORKFLOW["env"]["BUILDER_WORKFLOW"])
+    monkeypatch.setenv("BUILDER_COMMIT", WORKFLOW["env"]["BUILDER_COMMIT"])
+    source = step("publish", "Verify reviewed builder signatures before publication")["run"]
+    subprocess.run(["bash", "-eo", "pipefail", "-c", source], cwd=candidate.parent, check=True)
+    args = (tmp_path / "calls").read_text().splitlines()
+    assert args.count("verify") == 4
+    for flag, value in {
+        "--signer-workflow": WORKFLOW["env"]["BUILDER_WORKFLOW"],
+        "--signer-digest": WORKFLOW["env"]["BUILDER_COMMIT"],
+        "--repo": "reponomics/best-practices-mcp",
+        "--source-ref": "refs/tags/v0.2.0-beta.1",
+        "--source-digest": "a" * 40,
+        "--cert-oidc-issuer": "https://token.actions.githubusercontent.com",
+    }.items():
+        assert args.count(flag) == 4
+        assert all(args[i + 1] == value for i, arg in enumerate(args) if arg == flag)
+    assert args.count("--deny-self-hosted-runners") == 4
+    gh.write_text("#!/bin/sh\nexit 1\n")
+    failed = subprocess.run(["bash", "-eo", "pipefail", "-c", source], cwd=candidate.parent)
+    assert failed.returncode == 1
 
 
 def test_draft_dispatch_runs_at_tag_and_does_not_publish_from_main():
