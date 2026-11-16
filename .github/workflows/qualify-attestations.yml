@@ -24,7 +24,7 @@ jobs:
           mkdir -p fixture/dist fixture/reports
           printf 'Shared signer qualification fixture\n' > fixture/dist/qualification.txt
           cat > fixture/reports/qualification.cdx.json <<'JSON'
-          {"bomFormat":"CycloneDX","specVersion":"1.6","version":1,"metadata":{"component":{"type":"file","name":"qualification.txt","version":"fixture"}}}
+          {"bomFormat":"CycloneDX","specVersion":"1.6","serialNumber":"urn:uuid:9ee4d672-98bf-4b69-a181-7ea8906ae66e","version":1,"metadata":{"component":{"type":"file","name":"qualification.txt","version":"fixture"}}}
           JSON
       - name: Retain fixture for signing and verification
         id: upload
