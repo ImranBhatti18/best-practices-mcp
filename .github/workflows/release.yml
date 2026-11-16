@@ -18,7 +18,7 @@ concurrency:
 env:
   RELEASE_TAG: ${{ inputs.tag }}
   BUILDER_WORKFLOW: reponomics/release-infrastructure/.github/workflows/python-release.yml
-  BUILDER_COMMIT: 'f0f1e0b4eb552f496c87585ad0831697c8ecda26'
+  BUILDER_COMMIT: '71c03ce71d2383783954cf77fae51e7205b98741'
 
 jobs:
   preflight:
@@ -84,7 +84,7 @@ jobs:
   build:
     name: Build and attest with the reviewed reusable workflow
     needs: preflight
-    uses: reponomics/release-infrastructure/.github/workflows/python-release.yml@f0f1e0b4eb552f496c87585ad0831697c8ecda26
+    uses: reponomics/release-infrastructure/.github/workflows/python-release.yml@71c03ce71d2383783954cf77fae51e7205b98741
     permissions:
       contents: read
       id-token: write

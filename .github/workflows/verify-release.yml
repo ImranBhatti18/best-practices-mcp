@@ -44,7 +44,7 @@ jobs:
       EXPECTED_SHA: ${{ github.event.workflow_run.head_sha || inputs.commit }}
       REPOSITORY: reponomics/best-practices-mcp
       BUILDER_WORKFLOW: reponomics/release-infrastructure/.github/workflows/python-release.yml
-      BUILDER_COMMIT: 'f0f1e0b4eb552f496c87585ad0831697c8ecda26'
+      BUILDER_COMMIT: '71c03ce71d2383783954cf77fae51e7205b98741'
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Select the release used in the guide's commands
