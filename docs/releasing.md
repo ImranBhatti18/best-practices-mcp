@@ -86,6 +86,23 @@ GitHub's stock provenance generator does not include arbitrary manual workflow i
 
 The immutable release evidence still includes `release-workflow.yml`, the source workflow containing the build logic and exact external signing pins. That file documents the selected signer; it is not itself a trust anchor. Consumers must use the reviewed signer policy. Source-local releases through `0.5.0` retain their historical signer and are verified with that policy; later releases require the pinned external signer. A downloaded manifest cannot choose the expected signer.
 
+### Shared signing qualification
+
+On 2026-11-16, [qualification run 43870904808](https://github.com/reponomics/best-practices-mcp/actions/runs/43870904808) succeeded at source commit `eaaf184c88d334dc695b580ef4dee343b9bc1d71`, calling `reponomics/release-infrastructure/.github/workflows/attest.yml` at `4f684c645ece1c84caaf2868df5b146670219683`. The source workflow created an explicit text fixture and CycloneDX fixture, and separate shared-signer invocations generated provenance and an SBOM attestation. No package or release was published.
+
+| Check | Result |
+| --- | --- |
+| Verify original artifact and SBOM | Passed |
+| Reject modified artifact bytes | Passed |
+| Reject unexpected source commit and repository | Passed |
+| Reject unexpected signer workflow and commit | Passed |
+| Verify caller workflow in provenance and reject an unexpected workflow | Passed |
+| Verify caller workflow URI and commit in both certificates | Passed |
+
+The signed artifact digest matched the original fixture and differed from the modified fixture. The certificate named the pinned external signer and the actual caller workflow/ref/commit. GitHub CLI emitted explicit identity mismatches for the source commit, repository and signer commit; its modified-artifact and wrong-signer failures used a generic verification error. Positive verification before and after the rejection checks succeeded. The earlier run first exposed a missing serial number in the test SBOM; the fixture was corrected without changing the signer.
+
+The run retains fixtures, signature bundles, verified JSON and rejection output in `signer-qualification-43870904808-1` for 30 days. The [qualification workflow](../.github/workflows/qualify-attestations.yml) can be dispatched manually after merge. This demonstrates cross-repository signing and verification with the reviewed signer, not a completed production release or an unconditional SLSA Level 3 certification. The first real release still needs the normal build, approval, publication and consumer-verification checks.
+
 ### First verified publication
 
 On 2026-11-15, [0.2.0-beta.3](https://github.com/reponomics/best-practices-mcp/releases/tag/v0.2.0-beta.3) completed [release run 43759677395, attempt 1](https://github.com/reponomics/best-practices-mcp/actions/runs/43759677395) at commit `b222cabb63cbd5d44475b965e44ee349eee161ef`. The maintainer approved the `pypi` deployment. All four release jobs succeeded, including qualification, vulnerability and license scans, attestation generation, PyPI publication and immutable GitHub finalization.
