@@ -40,7 +40,7 @@ In the web UI, connect over stdio and inspect the ten tools and their input/outp
 
 Inspector retains earlier responses, so use the latest successful result for the selected project/document. After an uncertain write outcome, call `read_draft` before deciding whether another update is needed.
 
-Copy the complete `artifact.url` string without JSON quotes, escaping, or truncation. Check `transfer`, `requested_overrides`, and `effective_overrides`; investigate unexpected exclusions or `artifact: null` before proceeding. The browser runbook checks delivery and actual form behavior without saving.
+Copy the complete `artifact.url` string without JSON quotes, escaping, or truncation. Check `transfer`, `overrides`, and `effective_overrides`; investigate unexpected exclusions or `artifact: null` before proceeding. The browser runbook checks delivery and actual form behavior without saving.
 
 ## Repeatable CLI checks
 
