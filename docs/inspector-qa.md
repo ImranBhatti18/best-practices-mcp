@@ -1,12 +1,30 @@
 # Inspector qualification
 
-Use MCP Inspector for independent-client checks and exploratory tool calls. This is optional for ordinary contributors and a maintainer check for relevant release candidates and stable promotion. It supplements the automated MCP and installed-package suites; it does not replace storage failure, cancellation, atomicity, exact serialization, or protocol regressions. [ADR 0004](adr/0004-remove-reference-host.md) explains the reference-host removal.
+MCP Inspector is an optional tool for contributors who want to explore the server or debug client compatibility. Ordinary contributions require the [automated validation](../CONTRIBUTING.md#validate-the-implementation), not this walkthrough. Maintainers use the qualification checklist below for relevant release candidates and stable promotion, alongside the [release procedure](releasing.md).
 
-## Candidate and setup
+## Launch Inspector
 
-Follow the [Inspector launch instructions](../CONTRIBUTING.md#inspect-the-implemented-tools), including Inspector **2.14.0**, Node **24.22.3 or a newer supported 24.x**, modern protocol mode, and an explicit disposable absolute `BESTPRACTICES_DATA_DIR`. Keep the Inspector web UI local. No agent, model key, or BadgeApp authentication belongs in Inspector; authenticate only in the BadgeApp browser when performing live QA. Inspector is an external tool, not part of this project's locked dependencies, OSV scans, or release attestations.
+After `make setup`, install Node **24.22.3 or a newer supported 24.x**. On Unix with nvm, use `nvm install 24` and `nvm use 24`; Windows can use a native Node installation. Node is needed only for Inspector, not project setup, automated tests, or default CI. Inspector **2.14.0** is external to the project's locked dependencies and OSV scans.
 
-For package qualification, use the absolute executable from the exact installed wheel or sdist, outside the source checkout, rather than a development editable installation. Record the distribution hash/version, commit when known, executable/interpreter identity, Inspector/Node versions, OS, browser and date under `INTERNAL/live-qa/<candidate>/`. Retain tool arguments/results and the exact generated URLs without credentials. Identify source-checkout checks as such; they do not qualify published bytes. Reconnect to the same disposable root when checking persistence; never substitute the normal user draft directory.
+Launch the local web UI with a disposable absolute storage root. On macOS/Linux:
+
+```sh
+QA_ROOT="$(mktemp -d)"
+npx -y @modelcontextprotocol/inspector@2.14.0 --protocol-era modern -e "BESTPRACTICES_DATA_DIR=$QA_ROOT" ./.venv/bin/bestpractices-mcp
+```
+
+On Windows PowerShell:
+
+```powershell
+$qaRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("bestpractices-qa-" + [guid]::NewGuid())
+npx.cmd -y @modelcontextprotocol/inspector@2.14.0 --protocol-era modern -e "BESTPRACTICES_DATA_DIR=$qaRoot" .\.venv\Scripts\bestpractices-mcp.exe
+```
+
+Keep the UI local and reuse the same disposable root for reconnect checks. No model key, agent, or BadgeApp credentials are needed by Inspector. Public project reads and URL preparation contact BadgeApp; local document and catalog checks are offline. Only `update_draft` writes local drafts. For authenticated form checks, use the separate [browser runbook](live-browser-qa.md).
+
+## Qualify an installed candidate
+
+For release qualification, substitute the absolute executable from the exact installed wheel or sdist outside the source checkout. Record the distribution hash/version, commit when known, executable/interpreter identity, Inspector/Node versions, OS, browser and date under `INTERNAL/live-qa/<candidate>/`. Retain tool arguments/results and exact generated URLs without credentials. A development-checkout session is useful for debugging but does not qualify release artifacts.
 
 ## Short tool walkthrough
 
@@ -20,13 +38,13 @@ In the web UI, connect over stdio and inspect the ten tools and their input/outp
 | Omitted versus explicit document | Call `validate_draft` with the selected ID and `level: "passing"`, first omitting `draft`, then with `draft: {}`, then with a nonempty explicit document. Check `draft_source.kind` and validation results. `{}` bypasses storage; omitted `draft` reads it. Findings are not operational errors and do not prevent proposal generation. |
 | URL and explicit subset | For live QA, use the document and selected criteria from the [browser runbook](live-browser-qa.md). Supply the returned `draft` explicitly to `prepare_update_url`. For a stored subset, first read the complete draft, construct the desired explicit document while retaining relevant identity fields, generate, and read again to confirm the stored document was not replaced by the subset. |
 
-Use only the latest successful result for the selected project/document. Inspector can retain old responses; it does not enforce the retired host's cached-result policy. On a timeout, lost response, or uncertain write error, call `read_draft` before deciding whether another update is needed. There is no automatic client rollback or guaranteed retry prevention.
+Inspector retains earlier responses, so use the latest successful result for the selected project/document. After an uncertain write outcome, call `read_draft` before deciding whether another update is needed.
 
-Treat `artifact.url` as the exact artifact. Copy its complete string, not surrounding JSON quotes, an escaped JSON representation, truncated display text, or a reconstructed link. Check `transfer`, `requested_overrides`, and `effective_overrides`. Do not edit the URL to work around an unexpected exclusion or `artifact: null`; investigate the result. The browser runbook tests two delivery routes and actual form behavior without saving.
+Copy the complete `artifact.url` string without JSON quotes, escaping, or truncation. Check `transfer`, `requested_overrides`, and `effective_overrides`; investigate unexpected exclusions or `artifact: null` before proceeding. The browser runbook checks delivery and actual form behavior without saving.
 
 ## Repeatable CLI checks
 
-The CLI is useful for recorded assertions without opening the Inspector UI. From a development checkout on macOS/Linux, a discovery check is:
+For a discovery check without the UI, run from a development checkout on macOS/Linux:
 
 ```sh
 npx -y @modelcontextprotocol/inspector@2.14.0 --cli --protocol-era modern --connect-timeout 15000 ./.venv/bin/bestpractices-mcp --method tools/list --strict --format json
@@ -38,7 +56,7 @@ Windows PowerShell equivalent:
 npx.cmd -y @modelcontextprotocol/inspector@2.14.0 --cli --protocol-era modern --connect-timeout 15000 .\.venv\Scripts\bestpractices-mcp.exe --method tools/list --strict --format json
 ```
 
-For candidate qualification, substitute the installed candidate's absolute executable. `--method initialize` can be used first to inspect server identity, capabilities, and negotiated protocol without invoking a tool. Discovery should return exactly the ten documented tool names, not merely a count. Check the optional `schemaFindings` array as well as `result`: warnings do not fail the process, while error-severity portability findings exit with code 6. A schema portability finding is not automatically an MCP conformance violation.
+For qualification, substitute the installed candidate's absolute executable. `--method initialize` reports server identity, capabilities, and negotiated protocol. Discovery should return the ten documented tool names. Inspect `schemaFindings` alongside `result`: warnings leave the exit status unchanged, while error-severity portability findings exit with code 6. See [schema compatibility](schema-compatibility.md) for the expected schemas and interpretation of findings.
 
 A Unix shell example of an offline typed call is:
 
@@ -46,12 +64,12 @@ A Unix shell example of an offline typed call is:
 npx -y @modelcontextprotocol/inspector@2.14.0 --cli --protocol-era modern --connect-timeout 15000 ./.venv/bin/bestpractices-mcp --method tools/call --tool-name build_draft --tool-args-json '{"draft":{},"changes":{"name":"Inspector QA ✨"}}' --format json
 ```
 
-Assert the returned `result.structuredContent.draft` and its equivalent JSON text, not only exit status. Use `--tool-args-json` for exact typed arguments; `--tool-arg key=value` can coerce a JSON-looking string into another type. For complex JSON on Windows, use the UI's structured input unless the command's argument handling has been verified with the installed PowerShell version. Add `-e "BESTPRACTICES_DATA_DIR=ABSOLUTE_DISPOSABLE_PATH"` for storage calls, as in the contributor examples.
+Assert the returned `result.structuredContent.draft` and its equivalent JSON text, not only exit status. Use `--tool-args-json` for exact typed arguments; `--tool-arg key=value` can coerce a JSON-looking string into another type. For complex JSON on Windows, use the UI's structured input unless the command's argument handling has been verified with the installed PowerShell version. Add `-e "BESTPRACTICES_DATA_DIR=ABSOLUTE_DISPOSABLE_PATH"` for storage calls, using the disposable root created above.
 
-When recording scripted checks, keep JSON stdout separate from diagnostic stderr, set a bounded connection timeout, and retain the CLI's exit status before parsing output. An expected tool refusal requires exit code 5 and the intended structured error; an arbitrary nonzero exit is insufficient. Do not let a successful formatter or pipeline hide a failed command. Each CLI invocation creates a new connection, so sequential calls with the same data root can check persistence across server restarts; same-session behavior remains covered by automated MCP tests or the UI. No OAuth or remote transport configuration is needed for this stdio server.
+Keep JSON stdout separate from diagnostic stderr and preserve the CLI exit status before parsing output. An expected tool refusal requires exit code 5 and the intended structured error. Each CLI invocation creates a new connection; sequential calls with the same disposable root check persistence across restarts. Use the UI or automated MCP tests for same-session behavior.
 
-The pinned upstream [CLI smoke-testing guide](https://github.com/modelcontextprotocol/inspector/blob/4d3464cb3a6dde609d7b5ac24c440b947eb40f23/docs/cli-smoke-testing.md), [CLI reference](https://github.com/modelcontextprotocol/inspector/blob/4d3464cb3a6dde609d7b5ac24c440b947eb40f23/clients/cli/README.md), and [server configuration](https://github.com/modelcontextprotocol/inspector/blob/4d3464cb3a6dde609d7b5ac24c440b947eb40f23/docs/mcp-server-configuration.md) describe these behaviors. Its HTTP/OAuth and MCP App examples are outside this project's stdio tool surface; do not copy that infrastructure into the qualification procedure.
+The pinned upstream [CLI smoke-testing guide](https://github.com/modelcontextprotocol/inspector/blob/4d3464cb3a6dde609d7b5ac24c440b947eb40f23/docs/cli-smoke-testing.md), [CLI reference](https://github.com/modelcontextprotocol/inspector/blob/4d3464cb3a6dde609d7b5ac24c440b947eb40f23/clients/cli/README.md), and [server configuration](https://github.com/modelcontextprotocol/inspector/blob/4d3464cb3a6dde609d7b5ac24c440b947eb40f23/docs/mcp-server-configuration.md) document the Inspector commands.
 
 ## Completion
 
-Record each exercised check as passed, failed, or unexercised. Include exact candidate identity and limitations: CLI-only results do not establish UI usability, a macOS run does not establish Windows command compatibility, and a smoke check does not establish agent behavior. Complete the separate live-browser matrix for actual proposal application, then stop Inspector and retain the evidence. Delete only the disposable QA storage when no longer needed. No package release or website save is part of this procedure.
+For qualification, record each check as passed, failed, or unexercised, with candidate identity and the platforms and interfaces tested. Complete the separate live-browser matrix for proposal application. Stop Inspector before deleting the disposable QA directory, and retain the qualification evidence.

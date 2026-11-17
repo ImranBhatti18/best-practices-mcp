@@ -51,6 +51,16 @@ Use `make lock` to regenerate the lock and `make lock-check` to verify it. For a
 
 Review the lock diff and rerun the required checks when accepting dependency updates. Dependabot proposes weekly grouped Python/uv and GitHub Actions updates, plus pre-commit hook updates, with conventional PR-title prefixes. Its native pre-commit integration maintains actionlint’s release SHA and `# frozen:` version comment together. Each actionlint pin update regenerates the inventory in its PR workflow. Update the lint workflow’s source SHA and release version alongside the hook; update both workflows’ Go version and the hook’s `language_version` together. Inventory generation rejects inconsistent pins. Dependabot’s pre-commit ecosystem provides version updates, not security updates or vulnerability alerts; the separate OSV scans check the derived Go module inventory. Major Python updates remain separate for deliberate compatibility review; grouped security updates remain reviewable and do not auto-merge. Dependabot configuration does not itself enable repository vulnerability alerts or security-update settings; enable those in the new repository.
 
+## Optional local dependency scans
+
+Install [OSV-Scanner](https://google.github.io/osv-scanner/installation/) at the version pinned in the OSV workflow. Put it on `PATH`, or pass `OSV_SCANNER=/path/to/osv-scanner` to Make:
+
+```sh
+make -k scan-vulnerabilities scan-licenses
+```
+
+These commands query OSV and deps.dev using the committed Python lockfile and repository policy. Both scans are attempted, and any failure produces a nonzero exit status. Results are written to ignored `osv-scanner.sarif` and `osv-licenses.json`; inspect `license_violations` for license-policy findings. Investigate unknown metadata against the dependency's license files before proposing a policy correction or exception. The CI-only actionlint inventory is covered by the PR workflow reports.
+
 ## Code scanning
 
 This repository contains an explicit advanced CodeQL workflow. Do not enable GitHub's default CodeQL setup alongside it. The workflow scans interpreted source without installing or executing the project. Code scanning activates automatically when the target repository is public. While private, set `PRIVATE_CODE_SCANNING_ENABLED=true` only after enabling the necessary GitHub Code Security entitlement. Before that, the CodeQL job is visibly skipped, not qualified as a successful analysis.
@@ -79,6 +89,6 @@ Keep `PYPI_PUBLISH_ENABLED` unset and leave the release App variable unset while
 
 ## Local validation
 
-`make validate` runs lock consistency, quality checks, offline tests, catalog reproduction and workflow lint in one command. It continues with independent checks after failures and returns a failing status if any check fails; workflow lint uses the pinned fork’s actionlint pre-commit hook, with its environment installed and cached on first use. See [contributor prerequisites](../CONTRIBUTING.md#validate-the-implementation). OSV runs in CI and is not part of standard contributor validation. Maintainers and contributors who want proactive checks can follow the [optional local scan instructions](../CONTRIBUTING.md#optional-local-dependency-scans). `make check` remains the offline regression/lint interface, and `make test-coverage` measures server coverage locally. CodeQL/Codecov/Scorecard are qualified through their configured GitHub jobs; local configuration checks do not substitute for those executions.
+`make validate` runs lock consistency, quality checks, offline tests, catalog reproduction and workflow lint in one command. It continues with independent checks after failures and returns a failing status if any check fails; workflow lint uses the pinned fork’s actionlint pre-commit hook, with its environment installed and cached on first use. See [contributor prerequisites](../CONTRIBUTING.md#validate-the-implementation). OSV runs in CI and is not part of standard contributor validation. For proactive dependency checks, see [optional local scans](#optional-local-dependency-scans). `make check` remains the offline regression/lint interface, and `make test-coverage` measures server coverage locally. CodeQL/Codecov/Scorecard are qualified through their configured GitHub jobs; local configuration checks do not substitute for those executions.
 
 References: [CodeQL advanced workflow configuration](https://docs.github.com/en/code-security/reference/code-scanning/workflow-configuration-options), [Codecov action and OIDC](https://github.com/codecov/codecov-action), [OSV-Scanner](https://google.github.io/osv-scanner/), [Dependabot configuration](https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference).

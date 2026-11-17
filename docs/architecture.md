@@ -45,6 +45,6 @@ This protects concurrent updates within one server process and prevents partial-
 
 ## Verification
 
-Required verification covers pure domain rules, injected network/filesystem failures, real stdio discovery/calls, document and storage workflows, and fresh wheel/sdist installation. The CI matrix covers Python 3.11/3.12 on native Linux, macOS and Windows. [Inspector qualification](inspector-qa.md) exercises the installed server with an independent client; the [live browser runbook](live-browser-qa.md) checks current proposal-URL compatibility. These manual checks supplement deterministic regressions. The custom terminal host was removed under [ADR 0004](adr/0004-remove-reference-host.md).
+Required verification covers pure domain rules, injected network/filesystem failures, real stdio discovery/calls, document and storage workflows, and fresh wheel/sdist installation. The CI matrix covers Python 3.11/3.12 on native Linux, macOS and Windows. [Inspector qualification](inspector-qa.md) exercises the installed server with an independent client; the [live browser runbook](live-browser-qa.md) checks current proposal-URL compatibility. These manual checks supplement deterministic regressions.
 
 The [testing policy](testing-policy.md) defines the evidence boundaries. Coverage, package-verification and release results are written under ignored `build/coverage/`, `build/verification/` and `build/release/`, respectively.

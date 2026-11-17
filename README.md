@@ -37,7 +37,7 @@ Reload the host's MCP connections, then try a request such as:
 
 > Find the BadgeApp project for https://github.com/reponomics/PolicyChecks and show its silver-level progress. Do not prepare any changes yet.
 
-The table below describes the ten tools in the current source. Releases through beta.4 also included the console-script tool, removed by [ADR 0003](docs/adr/0003-remove-console-script-tool.md). Starting the executable directly in a terminal waits for MCP messages; it is not an interactive CLI. For a source checkout or connection debugging with Inspector, see [Contributing](CONTRIBUTING.md).
+Starting the executable directly in a terminal waits for MCP messages; it is not an interactive CLI. See [Contributing](CONTRIBUTING.md) for development setup or the [Inspector guide](docs/inspector-qa.md) for interactive debugging.
 
 ## Tools
 
@@ -98,7 +98,7 @@ Reports are voluntary and self-reported. We may summarize them in the [interacti
 - [Design](docs/design.md) and [architecture](docs/architecture.md): responsibilities, data flow and the human-review boundary.
 - [Specification](docs/specification.md) and [contracts](docs/contracts.md): tool behavior, exact payloads and operational limits.
 - [Upstream compatibility](docs/upstream-compatibility.md), [transfer rules](docs/transfer-rules.md) and [schema compatibility](docs/schema-compatibility.md): supported procedures and interoperability details.
-- [Contributing](CONTRIBUTING.md): development setup, tests, Inspector, native Windows commands and package verification.
+- [Contributing](CONTRIBUTING.md): development setup, validation and submitting changes.
 - [Live browser QA](docs/live-browser-qa.md): a supervised check of generated artifacts against BadgeApp.
 - [Release procedure](docs/releasing.md): qualification, publication and release QA.
 - [Release verification](docs/verification.md): verify downloaded assets, publisher identity, provenance and SBOMs, and understand the limits of these claims.

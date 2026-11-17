@@ -18,14 +18,4 @@ All success/error result branches are objects. Declaring `type: object` at the u
 
 `make test-contract` verifies input and serialization schemas, accepted JSON kinds, nested collections and all tool result variants. Real stdio tests verify typed results, equivalent text fallback and error signaling. Independent-host qualification checks the installed server rather than relying solely on an SDK example.
 
-For an optional Inspector check after setup, run:
-
-```sh
-npx -y @modelcontextprotocol/inspector@2.14.0 --cli \
-  ./.venv/bin/bestpractices-mcp --protocol-era modern \
-  --connect-timeout 15000 --method tools/list --strict --format json
-```
-
-Expected discovery is ten tools with no schema errors or warnings. Inspector may download its npm package; server discovery itself is offline. A successful check does not guarantee acceptance by every provider-specific schema subset. Inspector's [smoke-testing guidance](https://github.com/modelcontextprotocol/inspector/blob/main/docs/cli-smoke-testing.md) distinguishes portability lint from full conformance testing.
-
-Discovery alone does not exercise tool behavior. Follow [Inspector qualification](inspector-qa.md) for successes, expected errors, document/storage semantics, and exact artifact delivery. With JSON output, inspect the optional `schemaFindings` array as well as `result`; warning-severity findings do not cause a nonzero exit. Retain stderr separately from JSON stdout.
+Use the [Inspector CLI discovery check](inspector-qa.md#repeatable-cli-checks) for independent-client verification. Expected discovery is ten tools with no schema errors or warnings. Server discovery is offline; Inspector may download its npm package. A successful check does not establish compatibility with every provider-specific schema subset. The [Inspector walkthrough](inspector-qa.md#short-tool-walkthrough) covers tool behavior, result handling, and document/storage semantics.

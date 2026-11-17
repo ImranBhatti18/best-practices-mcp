@@ -8,14 +8,11 @@ This is an independent Reponomics project, not affiliated with, sponsored by, en
 | --- | --- |
 | [Roadmap](roadmap.md) | Planned work and proposals under consideration |
 | [MCP interaction log](interaction-log.md) | Working table of real sessions, intended to grow through voluntary user reports |
-| [Contributing](../CONTRIBUTING.md) | Development setup, validation commands and MCP client tooling |
+| [Contributing](../CONTRIBUTING.md) | Development setup, validation and submitting changes |
 | [Server specification](specification.md) | Supported behavior, ten tools and host/server responsibilities |
 | [Design decisions](design.md) | Human-review boundary, deliberate exclusion of direct saves and documented-procedure authority |
 | [ADR 0001: Badge image and status tools](adr/0001-badge-image-and-status-tools.md) | Accepted separation of SVG retrieval, compact status observations and detailed progress; reasons to keep update time and progress together |
 | [ADR 0002: Development toolchain](adr/0002-development-toolchain.md) | Canonical cross-platform Make tasks, locked uv environments and bootstrap-tool audit inventory |
-| [ADR 0003: Remove the console-script tool](adr/0003-remove-console-script-tool.md) | Accepted removal decision, historical rationale, and boundaries preserving reference-host and live URL coverage |
-| [ADR 0004: Remove the reference host](adr/0004-remove-reference-host.md) | Accepted removal, preserved automated coverage, and Inspector/live-browser qualification boundaries |
-| [Reference host removal audit](reference-host-removal-audit.md) | File inventory, coverage migrations, packaging/CI impacts, and qualification procedure for ADR 0004 |
 | [Architecture](architecture.md) | Modules, data flow, protocol adaptation and persistence boundaries |
 | [Implementation contracts](contracts.md) | Exact payloads, errors, size/network policies and edge cases |
 | [Upstream compatibility](upstream-compatibility.md) | Source baseline, routes, catalog conventions and update procedure |
@@ -31,6 +28,12 @@ This is an independent Reponomics project, not affiliated with, sponsored by, en
 The [project README](../README.md) covers installation, host configuration and everyday use. The [contributor guide](../CONTRIBUTING.md) covers development commands. [Inspector qualification](inspector-qa.md) covers explicit documents and optional server-managed storage through the public MCP interface.
 
 ## Historical records
+
+Removal decisions and their implementation audit are retained for provenance, not as operating instructions:
+
+- [Console-script removal decision](adr/0003-remove-console-script-tool.md)
+- [Reference-host removal decision](adr/0004-remove-reference-host.md)
+- [Reference-host removal audit](reference-host-removal-audit.md)
 
 [Initial implementation planning](planning/initial-implementation/README.md) preserves the original scope, reviews and development decisions. These historical records do not override the maintained documentation.
 
