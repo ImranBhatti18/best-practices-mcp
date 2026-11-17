@@ -50,6 +50,8 @@ For optional commit-time checks, run `make setup-hooks` once per clone. Hooks us
 
 Inspector and live-browser checks are **not required for ordinary contributions**. Maintainers use the [Inspector guide](docs/inspector-qa.md) and [browser runbook](docs/live-browser-qa.md) for release qualification as described in the [release procedure](docs/releasing.md).
 
+For optional Linux fuzzing of document parsing and proposal URLs, see the [fuzzing guide](docs/fuzzing.md).
+
 ## Dependencies
 
 Dependency changes must use licenses compatible with the project's MIT distribution and intended use, and pass CI's OSV vulnerability and license checks. Include the dependency's purpose and license evidence in the PR. Changes to license exceptions require review.
